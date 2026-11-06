@@ -3,6 +3,7 @@ openpyxl>=3.1
 beautifulsoup4>=4.12
 tkinterdnd2>=0.4
 Pillow>=10
+cryptography>=42     # opens the private apps with the secret key
 
 # pictures (OCR): Windows' own OCR ...
 winrt-runtime

@@ -11,3 +11,6 @@ smoke_out/
 *.pdf
 *.mhtml
 *.xlsx
+
+# private apps: source and key stay on this PC; only the encrypted bundle (apps/locked) is published
+private_apps/

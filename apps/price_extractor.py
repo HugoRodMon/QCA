@@ -1,124 +1,32 @@
-"""Price extractor - window version. Double-click 'Price Extractor.bat' or run:  python app.py"""
-import json
-import os
-import sys
+"""Price Extractor (Europe): daily supplier price lists -> Excel, in the final files' columns."""
 import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import updater  # noqa: E402
-from pricex.base import suppliers  # noqa: E402
-from pricex.extractor import name_hint  # noqa: E402
-from pricex.output import OutputFolderError  # noqa: E402
-from pricex.pipeline import SUPPORTED, run  # noqa: E402
-from version import __version__  # noqa: E402
+from pricex.base import suppliers
+from pricex.extractor import name_hint
+from pricex.output import OutputFolderError
+from pricex.pipeline import SUPPORTED, run
 
-try:
-    from tkinterdnd2 import DND_FILES, TkinterDnD
-    DND = True
-except ImportError:                     # still works without drag & drop
-    DND = False
-
-# settings live in %APPDATA%: next to the code would be a temporary folder inside the .exe
-SETTINGS = Path(os.environ.get("APPDATA", Path.home())) / "PriceExtractor" / "settings.json"
-OLD_SETTINGS = Path(__file__).resolve().parent / "settings.json"
-BG, PANEL, FG, MUTED, ACCENT = "#1f2126", "#2a2d34", "#e0e2e6", "#8b909a", "#5a8c74"
-
-
-def load_settings():
-    for f in (SETTINGS, OLD_SETTINGS):
-        try:
-            return json.loads(f.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-    return {}
-
-
-def save_settings(data):
-    try:
-        SETTINGS.parent.mkdir(parents=True, exist_ok=True)
-        SETTINGS.write_text(json.dumps(data, indent=1), encoding="utf-8")
-    except Exception:
-        pass
+from .common import DND, FG, drop_zone, load_settings, new_window, open_folder, save_settings
 
 
 class App:
-    def __init__(self):
-        self.root = TkinterDnD.Tk() if DND else tk.Tk()
-        self.root.title(f"Price Extractor  v{__version__}")
-        w, h = 900, 640
-        self.root.geometry(f"{w}x{h}+{(self.root.winfo_screenwidth() - w) // 2}+{(self.root.winfo_screenheight() - h) // 3}")
-        self.root.minsize(700, 500)
-        self.root.configure(bg=BG)
+    def __init__(self, master):
+        self.root = new_window(master, "Price Extractor - Europe", (900, 640), (700, 500))
         self.settings = load_settings()
         self.files = []                          # [Path]
         self.out_dir = tk.StringVar(value=self.settings.get("output", str(Path.home() / "Downloads" / "Prices extracted")))
-        self._style()
         self._build()
-        updater.cleanup_old()
-        if updater.is_frozen():                  # only the built .exe updates itself
-            threading.Thread(target=self._check_update, daemon=True).start()
-
-    # ------------------------------------------------------------ updates
-    def _check_update(self):
-        info = updater.check()
-        if info:
-            self.root.after(0, self._offer_update, info)
-
-    def _offer_update(self, info):
-        notes = info["notes"][:600] + ("..." if len(info["notes"]) > 600 else "")
-        msg = f"Version {info['version']} is available (you have {__version__}).\n\n{notes}\n\nUpdate now? The app will restart."
-        if not messagebox.askyesno("Update available", msg):
-            return
-        self.go_btn.configure(state="disabled")
-        self.status.configure(text="Downloading update...")
-        threading.Thread(target=self._do_update, args=(info,), daemon=True).start()
-
-    def _do_update(self, info):
-        def progress(done, total):
-            self.root.after(0, lambda: (self.progress.configure(maximum=total or 1, value=done),
-                                        self.status.configure(text=f"Downloading update... {done * 100 // (total or 1)}%")))
-        try:
-            new_exe = updater.download(info, progress)
-            updater.install_and_restart(new_exe)
-        except Exception as e:
-            self.root.after(0, lambda: (self.go_btn.configure(state="normal"), self.status.configure(text=""),
-                                        messagebox.showerror("Update failed", f"The update could not be installed:\n{e}\n\n"
-                                                             "You can keep using this version.")))
-            return
-        self.root.after(0, self.root.destroy)
-
-    # ------------------------------------------------------------ layout
-    def _style(self):
-        s = ttk.Style()
-        s.theme_use("clam")
-        s.configure("TFrame", background=BG)
-        s.configure("TLabel", background=BG, foreground=FG, font=("Segoe UI", 10))
-        s.configure("Muted.TLabel", foreground=MUTED, font=("Segoe UI", 9))
-        s.configure("TButton", font=("Segoe UI", 10), padding=(12, 6))
-        s.configure("Go.TButton", font=("Segoe UI", 11, "bold"), padding=(18, 8), background=ACCENT, foreground="white")
-        s.map("Go.TButton", background=[("active", "#6ba487"), ("disabled", "#3a3d45")])
-        s.configure("Treeview", background=PANEL, fieldbackground=PANEL, foreground=FG, rowheight=24, font=("Segoe UI", 9))
-        s.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"))
-        s.map("Treeview", background=[("selected", "#3a5a47")])
-        s.configure("Horizontal.TProgressbar", background=ACCENT)
 
     def _build(self):
         main = ttk.Frame(self.root, padding=16)
         main.pack(fill="both", expand=True)
 
         hint = "Drop price files here (pdf, txt, mhtml, xlsx, pictures)  -  or click to choose" if DND else "Click to choose price files"
-        self.drop = tk.Label(main, text=hint, bg="#18191d", fg=MUTED, font=("Segoe UI", 11), cursor="hand2",
-                             highlightthickness=2, highlightbackground="#3a3d45")
+        self.drop = drop_zone(main, hint, self.add, self.choose_files)
         self.drop.pack(fill="x", ipady=22)
-        self.drop.bind("<Button-1>", lambda e: self.choose_files())
-        if DND:
-            self.drop.drop_target_register(DND_FILES)
-            self.drop.dnd_bind("<<Drop>>", self.on_drop)
-            self.drop.dnd_bind("<<DragEnter>>", lambda e: self.drop.configure(highlightbackground=ACCENT, fg=ACCENT))
-            self.drop.dnd_bind("<<DragLeave>>", lambda e: self.drop.configure(highlightbackground="#3a3d45", fg=MUTED))
 
         table = ttk.Frame(main)
         table.pack(fill="both", expand=True, pady=(12, 6))
@@ -164,14 +72,10 @@ class App:
         self.log.tag_configure("bad", foreground="#e57373")
 
     # ------------------------------------------------------------ files
-    def on_drop(self, event):
-        self.drop.configure(highlightbackground="#3a3d45", fg=MUTED)
-        self.add(self.root.tk.splitlist(event.data))
-
     def choose_files(self):
         start = self.settings.get("input", str(Path.home() / "Downloads"))
         paths = filedialog.askopenfilenames(
-            title="Choose price files", initialdir=start,
+            parent=self.root, title="Choose price files", initialdir=start,
             filetypes=[("Price files", " ".join(f"*{e}" for e in sorted(SUPPORTED))), ("All files", "*.*")])
         if paths:
             self.settings["input"] = str(Path(paths[0]).parent)
@@ -209,19 +113,17 @@ class App:
         self.count.configure(text="")
 
     def choose_out(self):
-        d = filedialog.askdirectory(title="Where to save the extracted prices", initialdir=self.out_dir.get())
+        d = filedialog.askdirectory(parent=self.root, title="Where to save the extracted prices", initialdir=self.out_dir.get())
         if d:
             self.out_dir.set(d)
 
     def open_out(self):
-        d = Path(self.out_dir.get())
-        d.mkdir(parents=True, exist_ok=True)
-        os.startfile(d) if hasattr(os, "startfile") else None
+        open_folder(self.out_dir.get())
 
     # ------------------------------------------------------------ run
     def start(self):
         if not self.files:
-            messagebox.showinfo("Price Extractor", "Add some price files first.")
+            messagebox.showinfo("Price Extractor", parent=self.root, message="Add some price files first.")
             return
         self.settings["output"] = self.out_dir.get()
         save_settings(self.settings)
@@ -246,12 +148,12 @@ class App:
         self.go_btn.configure(state="normal")
         self.status.configure(text="Failed")
         if isinstance(e, OutputFolderError):
-            messagebox.showerror("Can't save in this folder", str(e))
+            messagebox.showerror("Can't save in this folder", str(e), parent=self.root)
         elif isinstance(e, PermissionError):
-            messagebox.showerror("Price Extractor", f"Windows refused access to a file:\n{e}\n\n"
+            messagebox.showerror("Price Extractor", parent=self.root, message=f"Windows refused access to a file:\n{e}\n\n"
                                  "If it's one of the price Excel files, close it in Excel and try again.")
         else:
-            messagebox.showerror("Price Extractor", f"Something went wrong:\n{e}")
+            messagebox.showerror("Price Extractor", parent=self.root, message=f"Something went wrong:\n{e}")
 
     def done(self, report):
         self.go_btn.configure(state="normal")
@@ -286,16 +188,17 @@ class App:
             msg.append(f"{skipped} price(s) of unknown products were not extracted - see the log.")
         title = "Extraction finished"
         if report.errors:
-            messagebox.showwarning(title, "\n\n".join(msg) or "Nothing extracted.")
+            messagebox.showwarning(title, parent=self.root, message="\n\n".join(msg) or "Nothing extracted.")
         else:
-            messagebox.showinfo(title, "\n\n".join(msg) or "Nothing extracted.")
+            messagebox.showinfo(title, parent=self.root, message="\n\n".join(msg) or "Nothing extracted.")
 
-    def mainloop(self):
-        self.root.mainloop()
+
+def open_app(master):
+    return App(master)
 
 
 def run_without_window(args):
-    """PriceExtractor.exe --extract <files or folders> -o <output folder>   (writes report.txt there)"""
+    """DQSApps.exe --extract <files or folders> -o <output folder>   (writes report.txt there)"""
     out = Path(args[args.index("-o") + 1]) if "-o" in args else Path.cwd() / "Prices extracted"
     inputs = [Path(a) for a in args if a not in ("--extract", "-o") and Path(a) != out]
     files = []
@@ -303,22 +206,4 @@ def run_without_window(args):
         files += sorted(f for f in p.iterdir() if f.suffix.lower() in SUPPORTED) if p.is_dir() else [p]
     report = run(files, out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "report.txt").write_text(f"Price Extractor v{__version__}\nSuppliers loaded: {len(suppliers())}\n\n"
-                                    f"{report.text()}\n", encoding="utf-8")
-
-
-def update_without_asking():
-    """PriceExtractor.exe --update : install the latest version if there is one, then start it."""
-    updater.cleanup_old()
-    info = updater.check()
-    if info and updater.is_frozen():
-        updater.install_and_restart(updater.download(info))
-
-
-if __name__ == "__main__":
-    if "--extract" in sys.argv:
-        run_without_window(sys.argv[1:])
-    elif "--update" in sys.argv:
-        update_without_asking()
-    else:
-        App().mainloop()
+    return report, out

@@ -2,10 +2,13 @@
 
 On start the app asks GitHub for the latest release. If its tag (v1.3.0) is newer than the running
 version, the user is offered the update; the new .exe is downloaded next to the current one, the
-running .exe is renamed to PriceExtractor.old.exe (Windows allows renaming a running program, not
-deleting it), the new one takes its place and is started. The .old.exe is deleted on the next start.
+running .exe is renamed to <name>.old.exe (Windows allows renaming a running program, not deleting
+it), the new one takes its place and is started. The .old.exe is deleted on the next start.
 
-Only does anything when running as the built .exe (not when running app.py with Python).
+The file keeps whatever name it has on the user's PC: apps that started as PriceExtractor.exe (before
+the suite became DQS Apps) stay under that name, so their shortcuts keep working.
+
+Only does anything when running as the built .exe (not when running dqs.py with Python).
 """
 import json
 import os
@@ -30,13 +33,19 @@ def current_exe():
     return Path(sys.executable)
 
 
+def _sibling(kind):
+    """<this exe's name>.new.exe / .old.exe, next to the running exe."""
+    exe = current_exe()
+    return exe.with_name(f"{exe.stem}.{kind}.exe")
+
+
 def parse_version(text):
     """'v1.10.2' -> (1, 10, 2)"""
     return tuple(int(n) for n in re.findall(r"\d+", str(text))[:3]) or (0,)
 
 
 def _get(url, accept="application/vnd.github+json"):
-    req = urllib.request.Request(url, headers={"User-Agent": "PriceExtractor-updater", "Accept": accept})
+    req = urllib.request.Request(url, headers={"User-Agent": "DQSApps-updater", "Accept": accept})
     token = os.environ.get("PRICE_EXTRACTOR_GITHUB_TOKEN")          # only needed for a private repository
     if token:
         req.add_header("Authorization", f"Bearer {token}")
@@ -63,7 +72,7 @@ def check():
 
 def download(info, progress=None):
     """Download the new .exe next to the running one. Returns its path."""
-    target = current_exe().with_name(EXE_NAME.replace(".exe", ".new.exe"))
+    target = _sibling("new")
     with _get(info["url"], accept="application/octet-stream") as r, open(target, "wb") as f:
         total, done = info.get("size") or int(r.headers.get("Content-Length", 0)), 0
         while True:
@@ -87,7 +96,7 @@ def download(info, progress=None):
 def install_and_restart(new_exe):
     """Swap the .exe files and start the new version. The caller must close the app right after."""
     exe = current_exe()
-    old = exe.with_name(EXE_NAME.replace(".exe", ".old.exe"))
+    old = _sibling("old")
     old.unlink(missing_ok=True)
     exe.rename(old)                                  # allowed while running
     try:
@@ -103,8 +112,8 @@ def cleanup_old():
     """Delete the previous version left behind by the last update (and a failed download)."""
     if not is_frozen():
         return
-    for name in (EXE_NAME.replace(".exe", ".old.exe"), EXE_NAME.replace(".exe", ".new.exe")):
+    for kind in ("old", "new"):
         try:
-            current_exe().with_name(name).unlink(missing_ok=True)
+            _sibling(kind).unlink(missing_ok=True)
         except OSError:
             pass                                     # still closing; next start will get it

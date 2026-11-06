@@ -1,11 +1,49 @@
-# Price Extractor
+# DQS Apps
 
-Reads the daily price lists (pdf, WhatsApp .txt, saved web page .mhtml, Excel) and writes the prices
+The team's little apps in one program (repository: QCA, Quality Control Apps). Download `DQSApps.exe` once;
+it keeps itself up to date (see "Releases and auto-update").
+
+| App | What it does |
+|---|---|
+| **Price Extractor - Europe** | Daily supplier price lists to Excel, in the final files' columns. Most of this document. |
+| **Image Editor** | The same edits on many pictures: rotate, mirror, cut to a ratio, resolutions, brightness, contrast, colour, sharpness, format. Originals are never changed. |
+| **Fruit Counter** | Marks every fruit on a picture; you check and correct the marks. Saves an Excel with the counts and the marked pictures. |
+| *Private apps* | Only with the secret key: see "Private apps". |
+
+## Fruit Counter
+
+1. Drop the pictures. Each one is counted when you select it.
+2. **Check the marks:** left click adds, right click removes, the wheel zooms, drag moves around, Undo (Ctrl+Z).
+3. If it's far off, **Measure one fruit** (drag across one fruit, edge to edge) and it counts again with that size.
+   The *fewer / more* slider plus **Count again** changes how strict it is.
+4. **Save results**: `Fruit counts.xlsx` (count, found automatically, added and removed by hand) and a copy of each
+   picture with its marks numbered.
+
+It looks for round fruit of about one size, so it does best on photos from above with even light. It's a first
+count to correct, not a final answer. The detection is in `apps/fruit_count.py`.
+
+## Private apps
+
+"Unlock more apps" on the home screen asks for the secret key. Without it these apps can't be used or read, not
+even their names: `apps/locked/apps.enc` is encrypted with the key, and the key isn't stored in the program or on
+GitHub. Their source and the key are only in `private_apps/` on the maintainer's PC (git ignores that folder), so
+**keep a safe copy of it**: they can't be recovered without it.
+
+- Change a private app: edit it in `private_apps/`, run `python tools/lock_apps.py`, commit `apps/locked/apps.enc`
+  and publish a version.
+- Change the key (e.g. someone leaves): `python tools/lock_apps.py --new-key`, commit, publish a version, and give
+  the new key to whoever should keep access.
+- A private app is a `.py` file with `open_app(master)`, listed in `tools/lock_apps.py`. It can only use libraries
+  the program already bundles (add others to `hiddenimports` in `DQSApps.spec`).
+
+# Price Extractor - Europe
+
+Reads the daily price lists (pdf, WhatsApp .txt, saved web page .mhtml, Excel, pictures) and writes the prices
 in the same columns as the final Excel files on OneDrive, ready to paste.
 
 ## Daily use
 
-1. Double-click **Price Extractor.bat**.
+1. Open DQS Apps and choose **Price Extractor - Europe**.
 2. Drop the day's price files on the window (or a whole folder). The supplier of each file is shown.
 3. Click **Extract prices**.
 
@@ -117,7 +155,7 @@ after typing a day by hand you can confirm the extractor would have produced the
 
 ## Releases and auto-update (for the team)
 
-The team uses `PriceExtractor.exe` from the GitHub Releases page. It checks GitHub every time it opens and,
+The team uses `DQSApps.exe` from the GitHub Releases page. It checks GitHub every time it opens and,
 when there is a newer release, offers to update: it downloads the new exe, replaces itself and restarts.
 
 **Publishing a new version** (after committing and pushing your changes):
@@ -132,23 +170,28 @@ and loads every supplier, and publishes it as release `v1.1.0`. Versions are com
 (v1.10.0 is newer than v1.9.0); always tag higher than the last release. The Action writes the version and the
 repository name into `version.py` itself; you never edit them.
 
-**For the team, once:** download `PriceExtractor.exe` from the latest release and put it in a folder they can
-write to (Desktop, Documents, `C:\Users\<name>\PriceExtractor`), not in `C:\Program Files`. The first time,
+**For the team, once:** download `DQSApps.exe` from the latest release and put it in a folder they can
+write to (Desktop, Documents, `C:\Users\<name>\DQSApps`), not in `C:\Program Files`. The first time,
 Windows SmartScreen may say "Windows protected your PC": More info -> Run anyway. Updates don't ask again.
 
 Notes:
 - The repository must be **public** for the update check to work without passwords.
 - `species.json`, `origins.json` and the column templates are inside the exe: to change them for everyone,
   change them in the repository and publish a new version.
+- Each release has the same program twice: `DQSApps.exe`, and `PriceExtractor.exe` for apps installed before the
+  suite (up to v1.0.7), which only look for that name. Those keep their file name on the user's PC, so shortcuts
+  still work. Drop that copy from `release.yml` once everybody is on v2.
 - Settings (output folder) are kept in `%APPDATA%\PriceExtractor`, so they survive updates.
-- `PriceExtractor.exe --update` updates without asking; `PriceExtractor.exe --extract <folder> -o <out>`
+- `DQSApps.exe --update` updates without asking; `DQSApps.exe --extract <folder> -o <out>`
   runs without a window and writes `report.txt`.
-- Build locally (optional): `pip install -r requirements.txt pyinstaller`, then `pyinstaller PriceExtractor.spec`.
+- Build locally (optional): `pip install -r requirements.txt pyinstaller`, then `pip install --no-deps rapidocr-onnxruntime` and `pyinstaller DQSApps.spec`.
 
 ## Files
 
 ```
-app.py                  the window
+dqs.py                  the home screen (starts everything)
+apps/                   the apps: price_extractor, image_editor + image_tools, fruit_counter + fruit_count,
+                        locked (private apps), common (shared look and settings)
 extract.py              command line
 pricex/
   suppliers/            one parser per supplier (+ _common.py, _pdf.py helpers)

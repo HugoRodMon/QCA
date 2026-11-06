@@ -1,6 +1,6 @@
-# Builds PriceExtractor.exe and publishes it as a GitHub Release whenever a version tag is pushed:
-#     git tag v1.1.0
-#     git push origin v1.1.0
+# Builds DQSApps.exe and publishes it as a GitHub Release whenever a version tag is pushed:
+#     git tag v2.1.0
+#     git push origin v2.1.0
 # The team's apps see the new release on their next start and update themselves.
 name: Release
 
@@ -38,24 +38,31 @@ jobs:
           Get-Content version.py
 
       - name: Build the exe
-        run: pyinstaller PriceExtractor.spec --noconfirm
+        run: pyinstaller DQSApps.spec --noconfirm
 
-      - name: Smoke test (the exe starts and loads every supplier)
+      - name: Smoke test (the exe starts and loads every app and supplier)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force smoke_in | Out-Null
-          $p = Start-Process dist\PriceExtractor.exe -ArgumentList "--extract","smoke_in","-o","smoke_out" -PassThru
+          $p = Start-Process dist\DQSApps.exe -ArgumentList "--extract","smoke_in","-o","smoke_out" -PassThru
           if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output "::error::The exe did not finish within 3 minutes"; exit 1 }
           if (-not (Test-Path smoke_out\report.txt)) { Write-Output "::error::The exe wrote no report (exit code $($p.ExitCode))"; exit 1 }
           $report = Get-Content smoke_out\report.txt -Raw
           $report
-          # never publish an exe that lost its supplier parsers: everyone would update to it
-          if ($report -notmatch "Suppliers loaded: ([1-9]\d*)") {
-            Write-Output "::error::The exe did not load any supplier: $($report -replace "`r?`n", ' | ')"; exit 1
+          # never publish an exe with a missing part: everyone would update to it
+          if ($report -notmatch "Suppliers loaded: ([1-9]\d*)" -or $report -notmatch "Apps check: OK") {
+            Write-Output "::error::The exe is missing something: $($report -replace "`r?`n", ' | ')"; exit 1
           }
+
+      # apps installed before the suite (up to v1.0.7) only look for a file with this name
+      - name: Copy the exe under its old name
+        shell: pwsh
+        run: Copy-Item dist\DQSApps.exe dist\PriceExtractor.exe
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/PriceExtractor.exe
+          files: |
+            dist/DQSApps.exe
+            dist/PriceExtractor.exe
           generate_release_notes: true
