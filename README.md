@@ -1,30 +1,60 @@
 # DQS Apps
 
-The team's little apps in one program (repository: QCA, Quality Control Apps). Download `DQSApps.exe` once;
-it keeps itself up to date (see "Releases and auto-update").
+The team's little apps in one window (repository: QCA, Quality Control Apps). Download `DQSApps.exe` once;
+it keeps itself up to date (see "Releases and auto-update"). The window is drawn by Microsoft Edge WebView2, which comes
+with Windows 11 and up-to-date Windows 10; if it's missing, the app says where to get it.
 
 | App | What it does |
 |---|---|
 | **Price Extractor - Europe** | Daily supplier price lists to Excel, in the final files' columns. Most of this document. |
 | **Image Editor** | The same edits on many pictures: rotate, mirror, cut to a ratio, resolutions, brightness, contrast, colour, sharpness, format. Originals are never changed. |
-| **Fruit Counter** | Marks every fruit on a picture; you check and correct the marks. Saves an Excel with the counts and the marked pictures. |
+| **Fruit Counter** | Marks every fruit on a picture (or every berry, bunch, punnet...); you check and correct the marks. Saves an Excel with the counts and the marked pictures. |
 | *Private apps* | Only with the secret key: see "Private apps". |
 
 ## Fruit Counter
 
 1. Drop the pictures. Each one is counted when you select it.
-2. **Check the marks:** left click adds, right click removes, the wheel zooms, drag moves around, Undo (Ctrl+Z).
-3. If it's far off, **Measure one fruit** (drag across one fruit, edge to edge) and it counts again with that size.
-   The *fewer / more* slider plus **Count again** changes how strict it is.
-4. **Save results**: `Fruit counts.xlsx` (count, found automatically, added and removed by hand) and a copy of each
-   picture with its marks numbered.
+2. **Count** says what counts as one:
 
-It looks for round fruit of about one size, so it does best on photos from above with even light. It's a first
-count to correct, not a final answer. The detection is in `apps/fruit_count.py`.
+   | Count | Counts |
+   |---|---|
+   | Fruit & vegetables | each piece (the default) |
+   | Grapes | berries, or bunches |
+   | Bananas | fingers, or hands |
+   | Tomatoes on the vine | tomatoes, or trusses |
+   | Berries in punnets | berries, or punnets |
+   | Asparagus, from the cut ends | spears |
+   | Cauliflower, broccoli, lettuce | heads |
+
+   Groups (bunches, hands, trusses, punnets) need one of them measured first: the screen asks for it.
+3. **Check the marks:** left click adds, right click removes, the wheel zooms, drag moves around, Undo (Ctrl+Z).
+4. If it's off, **Measure one** (drag across one, edge to edge): it counts again looking for things of that size
+   **and colour**. **Count again** keeps using it. The *fewer / more* slider changes how strict it is.
+5. **Save results**: `Fruit counts.xlsx` (count, what was counted, found automatically, added and removed by hand)
+   and a copy of each picture with its marks numbered.
+
+It counts with an AI model that outlines things in a picture (MobileSAM, in `models/`, run on the computer's
+processor; see `models/README.md`). The model reads the picture once, then is asked "what is here?" at the likely
+middles of things and across the picture; outlines alike in size, colour and shape are counted. A group is asked
+about with a box of its size, because at one point on touching bunches the model answers "this berry" or "all the
+grapes". The counting is in `apps/fruit_model.py` (its settings are at the top). Without the model files the
+plain counter in `apps/fruit_count.py` is used.
+
+How well it does (59 example pictures counted by hand; "within 10%" = at most 1 wrong in 10):
+
+| | Within 10% | Exact | Time per picture |
+|---|---|---|---|
+| Automatic | 49 of 59 | 34 | about 5 s |
+| One fruit measured | 50 of 59 | 37 | about 2.5 s |
+| Plain counter (before), one fruit measured | 27 of 59 | – | under 1 s |
+
+Hardest: lobed or irregular things counted automatically (peppers by their lobes: measure one), fruit hidden
+under others in a full box, and empty tray cells next to a few fruit. Big piles take longer: about 30 s for
+350 grapes. The first count after opening the app also loads the model (a few seconds).
 
 ## Private apps
 
-"Unlock more apps" on the home screen asks for the secret key. Without it these apps can't be used or read, not
+"Unlock more apps" in the sidebar asks for the secret key. Without it these apps can't be used or read, not
 even their names: `apps/locked/apps.enc` is encrypted with the key, and the key isn't stored in the program or on
 GitHub. Their source and the key are only in `private_apps/` on the maintainer's PC (git ignores that folder), so
 **keep a safe copy of it**: they can't be recovered without it.
@@ -33,7 +63,8 @@ GitHub. Their source and the key are only in `private_apps/` on the maintainer's
   and publish a version.
 - Change the key (e.g. someone leaves): `python tools/lock_apps.py --new-key`, commit, publish a version, and give
   the new key to whoever should keep access.
-- A private app is a `.py` file with `open_app(master)`, listed in `tools/lock_apps.py`. It can only use libraries
+- A private app is a `.py` file with a class `Api(host)` (what its screen can call) and the strings `HTML` and `JS`
+  (its screen; `view`, `app`, `dqs` and `hooks` are available in the JS), listed in `tools/lock_apps.py`. It can only use libraries
   the program already bundles (add others to `hiddenimports` in `DQSApps.spec`).
 
 # Price Extractor - Europe
@@ -44,22 +75,22 @@ in the same columns as the final Excel files on OneDrive, ready to paste.
 ## Daily use
 
 1. Open DQS Apps and choose **Price Extractor - Europe**.
-2. Drop the day's price files on the window (or a whole folder). The supplier of each file is shown.
-3. Click **Extract prices**.
+2. Drop the day's price files anywhere on the window (or a whole folder). The supplier of each file is shown.
+3. Click **Extract prices**. The results appear on the right: the Excel files, and tabs for anything to look at.
 
 The output folder gets:
 
 | File | What |
 |---|---|
 | `Prices DD-MM-YYYY.xlsx` | One tab per supplier whose final file is a single table (Anaco Greeve, Kissao, Timerfruit...) |
-| `<Supplier> DD-MM-YYYY.xlsx` | One file per supplier whose final file has **a tab per species** (Verdi, Olympic, Van der Lans, Jaguar, Everest, Fruitfactor, Westfalia). Same tabs and size columns as the final file. These are listed in the pop-up at the end. |
+| `<Supplier> DD-MM-YYYY.xlsx` | One file per supplier whose final file has **a tab per species** (Verdi, Olympic, Van der Lans, Jaguar, Everest, Fruitfactor, Westfalia). Same tabs and size columns as the final file. |
 
 Yellow header cells are columns or tabs that don't exist in the final file yet (a new size, a new species).
 
-The log at the bottom also lists:
-- **Products with a price that were NOT extracted**: a product the extractor doesn't know. Add it to
+The results also list:
+- **Not extracted**: a product the extractor doesn't know. Add it to
   `pricex/data/species.json` (see below) and run again.
-- **NOT PROCESSED**: files whose supplier wasn't recognised, or whose layout changed so much the parser failed.
+- **Not processed**: files whose supplier wasn't recognised, or whose layout changed so much the parser failed.
 
 Command line alternative: `python extract.py "folder or files" -o "output folder"`
 
@@ -79,9 +110,9 @@ Command line alternative: `python extract.py "folder or files" -o "output folder
   (e.g. Torres' Palmer 6/7 at €76 when the rest is €6-7):
   - if the same size is already offered at a normal price, the wrong row is **dropped**;
   - otherwise it's **kept with the price cell in red**.
-  Both appear under "PRICE CHECKS" in the log. The 3x limit is `OUTLIER` in `pricex/base.py`.
+  Both appear under "Price checks" in the results. The 3x limit is `OUTLIER` in `pricex/base.py`.
 - Rows that are exactly identical are kept only once (the log says how many were removed).
-- **Per kg check** (never removes anything, only marks the price red and lists it under "PRICE CHECKS"):
+- **Per kg check** (never removes anything, only marks the price red and lists it under "Price checks"):
   - labelled per kg but priced like a box: more than €25/kg, or price x box weight above €150
     (bins labelled per kg are normal and not flagged);
   - priced like a kg without saying so: under €0.15 per kg of box weight, a bin (100 kg or more, or "bin"
@@ -161,12 +192,12 @@ when there is a newer release, offers to update: it downloads the new exe, repla
 **Publishing a new version** (after committing and pushing your changes):
 
 ```
-git tag v1.1.0
-git push origin v1.1.0
+git tag v2.1.0
+git push origin v2.1.0
 ```
 
 The GitHub Action (`.github/workflows/release.yml`) builds the exe on a Windows machine, checks that it starts
-and loads every supplier, and publishes it as release `v1.1.0`. Versions are compared as numbers
+and loads every supplier, and publishes it as release `v2.1.0`. Versions are compared as numbers
 (v1.10.0 is newer than v1.9.0); always tag higher than the last release. The Action writes the version and the
 repository name into `version.py` itself; you never edit them.
 
@@ -189,9 +220,10 @@ Notes:
 ## Files
 
 ```
-dqs.py                  the home screen (starts everything)
-apps/                   the apps: price_extractor, image_editor + image_tools, fruit_counter + fruit_count,
-                        locked (private apps), common (shared look and settings)
+dqs.py                  opens the window and connects the screens to the apps
+ui/                     the screens: index.html, style.css, shell.js (sidebar, update card, unlock), one .js per app
+apps/                   the work behind each screen: price_extractor, image_editor + image_tools,
+                        fruit_counter + fruit_count, locked (private apps), common (settings, files, the Host)
 extract.py              command line
 pricex/
   suppliers/            one parser per supplier (+ _common.py, _pdf.py helpers)
@@ -203,4 +235,4 @@ pricex/
 tools/                  check.py, pdf_lines.py, update_templates.py
 ```
 
-Needs: `pip install pdfplumber openpyxl beautifulsoup4 tkinterdnd2`
+Needs: `pip install -r requirements.txt`, then `pip install --no-deps rapidocr-onnxruntime`

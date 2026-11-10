@@ -24,7 +24,7 @@ def _fernet(key, salt):
 
 
 def lock(apps, key):
-    """apps: [{id, title, description, source}] -> encrypted bytes."""
+    """apps: [{id, code, title, description, source}] -> encrypted bytes."""
     salt = os.urandom(16)
     token = _fernet(key, salt).encrypt(json.dumps(apps).encode("utf-8"))
     return base64.urlsafe_b64encode(salt) + b"." + token
@@ -41,7 +41,7 @@ def unlock(key, path=BUNDLE):
 
 
 def load_module(app):
-    """Turn a decrypted app's source into a module. It must define open_app(master)."""
+    """Turn a decrypted app's source into a module. It must define Api(host), HTML and JS (see dqs.py)."""
     name = f"dqs_private_{app['id']}"
     module = types.ModuleType(name)
     sys.modules[name] = module                     # dataclasses and friends look modules up here

@@ -1,200 +1,204 @@
 """Price Extractor (Europe): daily supplier price lists -> Excel, in the final files' columns."""
+import re
 import threading
-import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
 
 from pricex.base import suppliers
 from pricex.extractor import name_hint
 from pricex.output import OutputFolderError
 from pricex.pipeline import SUPPORTED, run
 
-from .common import DND, FG, drop_zone, load_settings, new_window, open_folder, save_settings
+from .common import load_settings, remember
+
+KINDS = {".pdf": "PDF", ".txt": "TXT", ".mhtml": "WEB", ".mht": "WEB", ".html": "WEB", ".htm": "WEB",
+         ".xlsx": "XLSX", ".xlsm": "XLSX"}
+PICTURES = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+TAB_NOTES = {
+    "checks": "Prices far from the usual offer of the same product. Red cells in the Excel; only “dropped” rows were removed.",
+    "unknown": "Products with a price the extractor doesn't know. Add them to pricex/data/species.json and run again.",
+    "failed": "Files whose supplier wasn't recognised, or whose layout changed so much the parser failed.",
+    "newcols": "Yellow header cells: columns or tabs that don't exist in the final file yet.",
+}
 
 
-class App:
-    def __init__(self, master):
-        self.root = new_window(master, "Price Extractor - Europe", (900, 640), (700, 500))
-        self.settings = load_settings()
-        self.files = []                          # [Path]
-        self.out_dir = tk.StringVar(value=self.settings.get("output", str(Path.home() / "Downloads" / "Prices extracted")))
-        self._build()
+def file_kind(path):
+    ext = Path(path).suffix.lower()
+    return KINDS.get(ext) or ("IMG" if ext in PICTURES else ext[1:5].upper() or "?")
 
-    def _build(self):
-        main = ttk.Frame(self.root, padding=16)
-        main.pack(fill="both", expand=True)
 
-        hint = "Drop price files here (pdf, txt, mhtml, xlsx, pictures)  -  or click to choose" if DND else "Click to choose price files"
-        self.drop = drop_zone(main, hint, self.add, self.choose_files)
-        self.drop.pack(fill="x", ipady=22)
+def how_text(result):
+    """How a supplier was recognised, in the words of the files table."""
+    how = result.identified_by
+    if file_kind(result.file) == "IMG":
+        return "✓ read from picture (OCR)"
+    if how.startswith("content"):
+        return "✓ confirmed from content"
+    if how.startswith("layout"):
+        return "✓ matched by layout"
+    return "from the file name only" if how.startswith("file name") else how
 
-        table = ttk.Frame(main)
-        table.pack(fill="both", expand=True, pady=(12, 6))
-        self.tree = ttk.Treeview(table, columns=("supplier", "file"), show="headings", selectmode="extended")
-        self.tree.heading("supplier", text="Supplier")
-        self.tree.heading("file", text="File")
-        self.tree.column("supplier", width=170, stretch=False)
-        self.tree.column("file", width=600)
-        sb = ttk.Scrollbar(table, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=sb.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-        self.tree.bind("<Delete>", lambda e: self.remove_selected())
 
-        row = ttk.Frame(main)
-        row.pack(fill="x", pady=(0, 8))
-        ttk.Button(row, text="Add files", command=self.choose_files).pack(side="left")
-        ttk.Button(row, text="Remove selected", command=self.remove_selected).pack(side="left", padx=6)
-        ttk.Button(row, text="Clear", command=self.clear).pack(side="left")
-        self.count = ttk.Label(row, text="", style="Muted.TLabel")
-        self.count.pack(side="right")
+def _check_item(supplier, text):
+    """One line of Result.corrections as a row of the Price checks tab. None if it isn't about a price."""
+    if text.startswith("removed "):                    # "removed 2 identical row(s)": only for the full log
+        return None
+    dropped = text.startswith("dropped ")
+    body = text[len("dropped "):] if dropped else text[len("CHECK "):] if text.startswith("CHECK ") else text
+    body = re.sub(r"\s*\(kept, marked red\)$", "", body)
+    title, _, detail = body.partition(": ")
+    return {"title": title, "supplier": supplier, "detail": detail,
+            "tag": "Dropped" if dropped else "Red cell", "kind": "bad" if dropped else "warn"}
 
-        out = ttk.Frame(main)
-        out.pack(fill="x", pady=(4, 8))
-        ttk.Label(out, text="Save to:").pack(side="left")
-        ttk.Entry(out, textvariable=self.out_dir).pack(side="left", fill="x", expand=True, padx=6)
-        ttk.Button(out, text="Change", command=self.choose_out).pack(side="left")
-        ttk.Button(out, text="Open folder", command=self.open_out).pack(side="left", padx=(6, 0))
 
-        go = ttk.Frame(main)
-        go.pack(fill="x", pady=(4, 8))
-        self.go_btn = ttk.Button(go, text="Extract prices", style="Go.TButton", command=self.start)
-        self.go_btn.pack(side="left")
-        self.progress = ttk.Progressbar(go, mode="determinate", style="Horizontal.TProgressbar")
-        self.progress.pack(side="left", fill="x", expand=True, padx=12)
-        self.status = ttk.Label(go, text="", style="Muted.TLabel", width=34)
-        self.status.pack(side="left")
+def _warning_item(result, text):
+    return {"title": text[0].upper() + text[1:], "supplier": f"{result.supplier} · {result.file}", "detail": "",
+            "tag": "Warning", "kind": "warn"}
 
-        self.log = tk.Text(main, height=11, bg="#18191d", fg=FG, insertbackground=FG, relief="flat",
-                           font=("Consolas", 9), wrap="none")
-        self.log.pack(fill="both", expand=False)
-        self.log.tag_configure("head", foreground="#e8c26b", font=("Consolas", 9, "bold"))
-        self.log.tag_configure("bad", foreground="#e57373")
 
-    # ------------------------------------------------------------ files
-    def choose_files(self):
-        start = self.settings.get("input", str(Path.home() / "Downloads"))
-        paths = filedialog.askopenfilenames(
-            parent=self.root, title="Choose price files", initialdir=start,
-            filetypes=[("Price files", " ".join(f"*{e}" for e in sorted(SUPPORTED))), ("All files", "*.*")])
+def _skipped_item(supplier, text):
+    title, _, rest = text.partition(" (")
+    return {"title": title, "supplier": supplier, "detail": rest.rstrip(")"), "tag": "Not extracted", "kind": "warn"}
+
+
+def _failed_item(text):
+    head = text.partition("\n")[0]                     # a parser failure has its traceback after the first line
+    name, _, reason = head.partition(": ")
+    who = ""
+    if name.endswith(")") and " (" in name:            # "file.pdf (Verdi): the parser failed"
+        name, _, who = name[:-1].rpartition(" (")
+    elif "known supplier" in reason:
+        who = "No supplier matched"
+    return {"title": name, "supplier": who, "detail": reason, "tag": "Not processed", "kind": "bad"}
+
+
+def _new_item(text):
+    """'Verdi: Plums: new size column '45/50'' or 'Verdi: new tab 'Kiwis' (not in the final file)'"""
+    supplier, _, rest = text.partition(": ")
+    tab, marker, label = rest.partition(": new size column ")
+    if marker:
+        return {"title": f"{tab} · size {label.strip(chr(39))}", "supplier": supplier,
+                "detail": f"New column in tab {tab}.", "tag": "New column", "kind": "new"}
+    tab = re.search(r"new tab '(.*)'", rest)
+    return {"title": tab[1] if tab else rest, "supplier": supplier, "detail": "This tab isn't in the final file yet.",
+            "tag": "New tab", "kind": "new"}
+
+
+def _tab_count(path):
+    try:
+        from openpyxl import load_workbook
+        book = load_workbook(path, read_only=True)
+        count = len(book.sheetnames)
+        book.close()
+        return count
+    except Exception:
+        return 0
+
+
+def _plural(n, word):
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def report_payload(report):
+    """Everything the results panel shows, from what the pipeline reports."""
+    wide = {name for name, _ in report.separate}
+    outputs = []
+    if report.combined:
+        names = sorted({r.supplier for r in report.results if r.rows and r.supplier not in wide})
+        outputs.append({"name": report.combined.name, "path": str(report.combined), "detail": "Combined · " + ", ".join(names)})
+    for name, path in report.separate:
+        mine = [n for n in report.notes if n.startswith(name + ": ")]
+        columns = sum(1 for n in mine if "new size column" in n)
+        parts = ["Tab per species", _plural(_tab_count(path), "tab")]
+        if len(mine) > columns:
+            parts.append(_plural(len(mine) - columns, "new tab"))
+        if columns:
+            parts.append(_plural(columns, "new column"))
+        outputs.append({"name": path.name, "path": str(path), "detail": " · ".join(parts)})
+
+    checks = []
+    for r in report.results:
+        checks += [item for item in (_check_item(r.supplier, c) for c in r.corrections) if item]
+        checks += [_warning_item(r, w) for w in r.warnings]
+    unknown = [_skipped_item(r.supplier, s) for r in report.results for s in r.skipped]
+    failed = [_failed_item(e) for e in report.errors]
+    newcols = [_new_item(n) for n in report.notes]
+    return {"rows": sum(len(r.rows) for r in report.results), "outputs": outputs,
+            "renamed": [{"wanted": w, "used": u} for w, u in report.renamed],
+            "issues": {"checks": checks, "unknown": unknown, "failed": failed, "newcols": newcols},
+            "notes": TAB_NOTES, "log": report.text(),
+            "to_look_at": len(checks) + len(unknown) + len(newcols), "not_processed": len(failed)}
+
+
+def error_text(e):
+    if isinstance(e, OutputFolderError):
+        return str(e)
+    if isinstance(e, PermissionError):
+        return f"Windows refused access to a file: {e}. If it's one of the price Excel files, close it in Excel and try again."
+    return f"Something went wrong: {e}"
+
+
+class Api:
+    def __init__(self, host):
+        self._host = host
+
+    def state(self):
+        return {"out": load_settings().get("output", str(Path.home() / "Downloads" / "Prices extracted"))}
+
+    def choose(self):
+        """The file dialog. Returns the paths chosen."""
+        types = "Price files (" + ";".join(f"*{e}" for e in sorted(SUPPORTED)) + ")"
+        paths = self._host.ask_files(load_settings().get("input", str(Path.home() / "Downloads")), [types])
         if paths:
-            self.settings["input"] = str(Path(paths[0]).parent)
-            save_settings(self.settings)
-            self.add(paths)
+            remember("input", str(Path(paths[0]).parent))
+        return paths
 
-    def add(self, paths):
+    def add(self, paths, known):
+        """Files and folders -> new rows for the table. A final (OneDrive) Excel is left out: it isn't a price list."""
         finals = {s.final_file.lower() for s in suppliers() if s.final_file}
-        left_out = 0
-        for p in paths:
-            p = Path(p)
-            items = sorted(f for f in p.iterdir() if f.suffix.lower() in SUPPORTED) if p.is_dir() else [p]
-            for f in items:
-                if f in self.files:
+        known, files, left_out = set(known), [], []
+        for p in map(Path, paths):
+            for f in sorted(x for x in p.iterdir() if x.suffix.lower() in SUPPORTED) if p.is_dir() else [p]:
+                if str(f) in known:
                     continue
-                if f.name.lower() in finals:              # a final (OneDrive) Excel, not a price list
-                    left_out += 1
+                if f.name.lower() in finals:
+                    left_out.append(f.name)
                     continue
-                self.files.append(f)
-                sup = name_hint(f)              # a first guess; the content decides when extracting
-                self.tree.insert("", "end", iid=str(f),
-                                 values=(f"{sup.name} (name)" if sup else "? (read when extracting)", f.name))
-        note = f"   ({left_out} final Excel file(s) left out)" if left_out else ""
-        self.count.configure(text=f"{len(self.files)} file(s){note}")
+                known.add(str(f))
+                guess = name_hint(f)                      # a first guess; the content decides when extracting
+                files.append({"path": str(f), "name": f.name, "kind": file_kind(f), "guess": guess.name if guess else None})
+        return {"files": files, "left_out": left_out}
 
-    def remove_selected(self):
-        for iid in self.tree.selection():
-            self.tree.delete(iid)
-            self.files = [f for f in self.files if str(f) != iid]
-        self.count.configure(text=f"{len(self.files)} file(s)" if self.files else "")
+    def choose_out(self, current):
+        return self._host.ask_folder(current)
 
-    def clear(self):
-        self.tree.delete(*self.tree.get_children())
-        self.files = []
-        self.count.configure(text="")
+    def open_out(self, folder):
+        return self._host.open_folder(folder)
 
-    def choose_out(self):
-        d = filedialog.askdirectory(parent=self.root, title="Where to save the extracted prices", initialdir=self.out_dir.get())
-        if d:
-            self.out_dir.set(d)
+    def open_file(self, path):
+        return self._host.open_file(path)
 
-    def open_out(self):
-        open_folder(self.out_dir.get())
+    def start(self, paths, out):
+        remember("output", out)
+        threading.Thread(target=self._work, args=(paths, Path(out)), daemon=True).start()
 
-    # ------------------------------------------------------------ run
-    def start(self):
-        if not self.files:
-            messagebox.showinfo("Price Extractor", parent=self.root, message="Add some price files first.")
-            return
-        self.settings["output"] = self.out_dir.get()
-        save_settings(self.settings)
-        self.go_btn.configure(state="disabled")
-        self.log.delete("1.0", "end")
-        threading.Thread(target=self.work, args=(list(self.files), Path(self.out_dir.get())), daemon=True).start()
+    def _work(self, paths, out):
+        emit = self._host.emit
 
-    def work(self, files, out_dir):
         def progress(i, n, name):
-            self.root.after(0, self.show_progress, i, n, name)
+            emit("price.progress", {"i": i, "n": n, "name": name})
+
+        def file_done(path, result, error):
+            if result:
+                emit("price.file", {"path": str(path), "supplier": result.supplier, "how": how_text(result), "rows": len(result.rows)})
+            else:
+                head = (error or "").partition("\n")[0]
+                emit("price.file", {"path": str(path), "failed": True, "reason": head.partition(": ")[2],
+                                    "unrecognised": "known supplier" in head})
+
         try:
-            report = run(files, out_dir, progress)
-            self.root.after(0, self.done, report)
-        except Exception as e:                                         # never leave the window stuck
-            self.root.after(0, self.failed, e)
-
-    def show_progress(self, i, n, name):
-        self.progress.configure(maximum=n, value=i)
-        self.status.configure(text=f"Reading {name}" if name else "Writing Excel...")
-
-    def failed(self, e):
-        self.go_btn.configure(state="normal")
-        self.status.configure(text="Failed")
-        if isinstance(e, OutputFolderError):
-            messagebox.showerror("Can't save in this folder", str(e), parent=self.root)
-        elif isinstance(e, PermissionError):
-            messagebox.showerror("Price Extractor", parent=self.root, message=f"Windows refused access to a file:\n{e}\n\n"
-                                 "If it's one of the price Excel files, close it in Excel and try again.")
-        else:
-            messagebox.showerror("Price Extractor", parent=self.root, message=f"Something went wrong:\n{e}")
-
-    def done(self, report):
-        self.go_btn.configure(state="normal")
-        rows = sum(len(r.rows) for r in report.results)
-        self.status.configure(text=f"Done: {rows} prices")
-        # show which supplier each file really is (read from its content)
-        for f in self.files:
-            res = next((r for r in report.results if r.file == f.name), None)
-            if res:
-                self.tree.set(str(f), "supplier", res.supplier + ("" if res.identified_by.startswith("file name") else " ✓"))
-            elif any(e.startswith(f.name) for e in report.errors):
-                self.tree.set(str(f), "supplier", "NOT RECOGNISED")
-        for line in report.text().splitlines():
-            tag = "head" if line and not line.startswith(" ") else None
-            if line.startswith("NOT PROCESSED") or line.startswith("WARNINGS"):
-                tag = "bad"
-            self.log.insert("end", line + "\n", tag)
-
-        msg = []
-        if report.renamed:
-            msg.append("These files are open (probably in Excel), so the new prices were saved as:\n" +
-                       "\n".join(f"   {used}" for _, used in report.renamed))
-        if report.combined:
-            msg.append(f"Combined file:\n   {report.combined.name}")
-        if report.separate:
-            msg.append("Separate files (their final file is split by species):\n" +
-                       "\n".join(f"   {p.name}" for _, p in report.separate))
-        if report.errors:
-            msg.append(f"{len(report.errors)} file(s) could not be processed - see the log.")
-        skipped = sum(len(r.skipped) for r in report.results)
-        if skipped:
-            msg.append(f"{skipped} price(s) of unknown products were not extracted - see the log.")
-        title = "Extraction finished"
-        if report.errors:
-            messagebox.showwarning(title, parent=self.root, message="\n\n".join(msg) or "Nothing extracted.")
-        else:
-            messagebox.showinfo(title, parent=self.root, message="\n\n".join(msg) or "Nothing extracted.")
-
-
-def open_app(master):
-    return App(master)
+            emit("price.done", report_payload(run(paths, out, progress, file_done)))
+        except Exception as e:                            # never leave the screen stuck
+            emit("price.error", error_text(e))
 
 
 def run_without_window(args):

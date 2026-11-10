@@ -71,20 +71,23 @@ def _how(result):
     return "" if not how or how.startswith(("content", "file name", "chosen")) else f", recognised by {how}"
 
 
-def run(files, out_dir, progress=None):
+def run(files, out_dir, progress=None, file_done=None):
+    """progress(i, n, name) before each file; file_done(path, result or None, error or None) after it."""
     report = Report()
     for i, f in enumerate(files):
         f = Path(f)
         if progress:
             progress(i, len(files), f.name)
         if f.suffix.lower() not in SUPPORTED:
-            report.errors.append(f"{f.name}: file type not supported")
-            continue
-        res, err = extract_file(f)
+            res, err = None, f"{f.name}: file type not supported"
+        else:
+            res, err = extract_file(f)
         if err:
             report.errors.append(err)
         elif res:
             report.results.append(res)
+        if file_done:
+            file_done(f, res, err)
     with_rows = [r for r in report.results if r.rows]
     if with_rows:
         by_name = {s.name: s for s in suppliers()}

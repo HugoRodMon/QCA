@@ -19,10 +19,8 @@ from apps.locked import BUNDLE, lock, unlock  # noqa: E402
 PRIVATE = ROOT / "private_apps"
 KEY_FILE = PRIVATE / "KEY.txt"
 APPS = [
-    {"id": "invoice_to_excel", "title": "Invoices to Excel",
-     "description": "Converts PDF invoices into Excel tables, with a check of their totals."},
-    {"id": "file_renamer", "title": "File Renamer",
-     "description": "Picks files and renames them in order with consecutive numbers."},
+    {"id": "invoice_to_excel", "code": "IX", "title": "Invoices to Excel", "description": "PDF invoices → Excel"},
+    {"id": "file_renamer", "code": "FR", "title": "File Renamer", "description": "Number files in order"},
 ]
 LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"     # 32 signs, without the look-alikes 0/O and 1/I
 

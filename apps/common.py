@@ -1,19 +1,10 @@
-"""What all DQS apps share: colours, widget styles, settings and drag & drop."""
+"""What all DQS apps share: settings, file helpers, and the Host that connects them to the window."""
+import base64
+import io
 import json
 import os
-import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
 
-try:
-    from tkinterdnd2 import DND_FILES, TkinterDnD
-    DND = True
-except ImportError:                     # still works without drag & drop
-    DND_FILES, TkinterDnD = None, None
-    DND = False
-
-BG, PANEL, FG, MUTED, ACCENT = "#1f2126", "#2a2d34", "#e0e2e6", "#8b909a", "#5a8c74"
-BORDER, DARK, BAD = "#3a3d45", "#18191d", "#e57373"
 IMAGE_TYPES = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff")
 
 # settings live in %APPDATA%: next to the code would be a temporary folder inside the .exe
@@ -35,54 +26,11 @@ def save_settings(data):
         pass
 
 
-def new_root():
-    return TkinterDnD.Tk() if DND else tk.Tk()
-
-
-def apply_style():
-    s = ttk.Style()
-    s.theme_use("clam")
-    s.configure("TFrame", background=BG)
-    s.configure("TLabel", background=BG, foreground=FG, font=("Segoe UI", 10))
-    s.configure("Muted.TLabel", foreground=MUTED, font=("Segoe UI", 9))
-    s.configure("Head.TLabel", font=("Segoe UI", 10, "bold"))
-    s.configure("TButton", font=("Segoe UI", 10), padding=(12, 6))
-    s.configure("Go.TButton", font=("Segoe UI", 11, "bold"), padding=(18, 8), background=ACCENT, foreground="white")
-    s.map("Go.TButton", background=[("active", "#6ba487"), ("disabled", BORDER)])
-    s.configure("Treeview", background=PANEL, fieldbackground=PANEL, foreground=FG, rowheight=24, font=("Segoe UI", 9))
-    s.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"))
-    s.map("Treeview", background=[("selected", "#3a5a47")])
-    s.configure("Horizontal.TProgressbar", background=ACCENT)
-    s.configure("TCheckbutton", background=BG, foreground=FG, font=("Segoe UI", 10))
-    s.map("TCheckbutton", background=[("active", BG)])
-    s.configure("Horizontal.TScale", background=BG)
-
-
-def new_window(master, title, size, minsize=(600, 400)):
-    win = tk.Toplevel(master)
-    win.title(title)
-    w, h = size
-    win.geometry(f"{w}x{h}+{max(0, (win.winfo_screenwidth() - w) // 2)}+{max(0, (win.winfo_screenheight() - h) // 3)}")
-    win.minsize(*minsize)
-    win.configure(bg=BG)
-    return win
-
-
-def drop_zone(parent, text, on_files, on_click=None):
-    """The dark 'drop files here' area. on_files gets a list of paths."""
-    zone = tk.Label(parent, text=text, bg=DARK, fg=MUTED, font=("Segoe UI", 11), cursor="hand2",
-                    highlightthickness=2, highlightbackground=BORDER)
-    if on_click:
-        zone.bind("<Button-1>", lambda e: on_click())
-    if DND:
-        def dropped(event):
-            zone.configure(highlightbackground=BORDER, fg=MUTED)
-            on_files(list(zone.tk.splitlist(event.data)))
-        zone.drop_target_register(DND_FILES)
-        zone.dnd_bind("<<Drop>>", dropped)
-        zone.dnd_bind("<<DragEnter>>", lambda e: zone.configure(highlightbackground=ACCENT, fg=ACCENT))
-        zone.dnd_bind("<<DragLeave>>", lambda e: zone.configure(highlightbackground=BORDER, fg=MUTED))
-    return zone
+def remember(key, value):
+    """Keep one setting. Read fresh: all the apps share this file."""
+    data = load_settings()
+    data[key] = value
+    save_settings(data)
 
 
 def image_files(paths):
@@ -99,3 +47,82 @@ def open_folder(folder):
     folder.mkdir(parents=True, exist_ok=True)
     if hasattr(os, "startfile"):
         os.startfile(folder)
+
+
+def data_url(img, quality=85):
+    """A PIL picture as something an <img> can show. JPG unless it has transparency."""
+    buffer = io.BytesIO()
+    if img.mode in ("RGBA", "LA", "PA"):
+        img.save(buffer, "PNG")
+        kind = "png"
+    else:
+        img.convert("RGB").save(buffer, "JPEG", quality=quality)
+        kind = "jpeg"
+    return f"data:image/{kind};base64,{base64.b64encode(buffer.getvalue()).decode('ascii')}"
+
+
+def picture_info(path, thumb_side=132):
+    """(width, height, thumbnail data url) of a picture, turned the way it was taken. Quick: reads it small."""
+    from PIL import Image, ImageOps
+    with Image.open(path) as img:
+        w, h = img.size
+        if img.getexif().get(274) in (5, 6, 7, 8):        # phone pictures
+            w, h = h, w
+        img.draft("RGB", (thumb_side * 2, thumb_side * 2))
+        small = ImageOps.exif_transpose(img)
+        small.thumbnail((thumb_side, thumb_side))
+        return w, h, data_url(small.convert("RGB"), 75)
+
+
+class Host:
+    """What an app can ask of the window: pop-up dialogs, messages to its screen, opening files."""
+
+    def __init__(self):
+        self.window = None                  # set once the window exists
+
+    def emit(self, event, payload=None):
+        """Tell the screen something happened. Safe from any thread."""
+        if self.window:
+            self.window.evaluate_js(f"dqs.emit({json.dumps(event)}, {json.dumps(payload)})")
+
+    def ask_files(self, directory="", types=()):
+        """Choose files. types: e.g. ['Pictures (*.jpg;*.png)']. Returns a list of paths."""
+        import webview
+        chosen = self.window.create_file_dialog(webview.FileDialog.OPEN, directory=str(directory or ""), allow_multiple=True,
+                                                file_types=tuple(types) + ("All files (*.*)",))
+        return list(chosen or [])
+
+    def ask_folder(self, directory=""):
+        import webview
+        chosen = self.window.create_file_dialog(webview.FileDialog.FOLDER, directory=str(directory or ""))
+        return chosen[0] if chosen else None
+
+    def open_folder(self, folder):
+        try:
+            open_folder(folder)
+        except Exception as e:
+            return str(e)
+
+    def open_file(self, path):
+        try:
+            os.startfile(path)
+        except Exception as e:
+            return str(e)
+
+
+def full_speed():
+    """Ask Windows not to slow this program down when its window isn't in front ("power throttling" moves
+    such programs to the slow, power-saving cores, which makes counting with the model 10 times slower)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class State(ctypes.Structure):
+            _fields_ = [("Version", wintypes.ULONG), ("ControlMask", wintypes.ULONG), ("StateMask", wintypes.ULONG)]
+
+        state = State(1, 0x1, 0x0)      # execution speed throttling: off
+        kernel = ctypes.windll.kernel32
+        kernel.SetProcessInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        return bool(kernel.SetProcessInformation(kernel.GetCurrentProcess(), 4, ctypes.byref(state), ctypes.sizeof(state)))
+    except Exception:
+        return False
