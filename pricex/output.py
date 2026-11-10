@@ -60,12 +60,17 @@ def write_long_sheet(wb, supplier, results, tpl):
     ws.append(headers)
     n = 0
     price_col = next((i for i, h in enumerate(headers, 1) if h.strip().upper() == "PRICE EUR"), None)
+    must_fill = [i for i, h in enumerate(headers, 1) if h.strip().upper() in supplier.must_fill]
     for res in results:
         for r in res.rows:
-            ws.append([value(r, h, res.date) for h in headers])
+            values = [value(r, h, res.date) for h in headers]
+            ws.append(values)
             n += 1
             if r.flag and price_col:
                 ws.cell(ws.max_row, price_col).fill = SUSPECT
+            for i in must_fill:                 # missing and needed: red, to be filled in by hand
+                if values[i - 1] is None:
+                    ws.cell(ws.max_row, i).fill = SUSPECT
     _finish(ws, len(headers))
     return n
 

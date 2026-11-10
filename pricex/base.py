@@ -7,7 +7,7 @@ import copy
 import re
 
 from . import normalize as N
-from .model import PriceRow
+from .model import FIELDS, PriceRow
 
 
 class Supplier:
@@ -30,6 +30,9 @@ class Supplier:
     upper_species = False     # write SPECIE in capitals
     default_packaging = "Carton"
     default_cat = ""          # CAT written when the price list doesn't say (e.g. 1)
+    default_brand = ""        # BRAND written when the price list doesn't say (e.g. "Generic")
+    must_fill = ()            # columns that can't stay empty, e.g. ("WEIGHT (KG)",): an empty one is coloured
+                              # red in the output and the report says so, for the person to fill in
 
     def parse(self, doc):
         """Return a list of PriceRow. `specie` may be any text naming the product
@@ -72,6 +75,7 @@ class Supplier:
             r.packaging = (N.packaging_rule(species, r.weight, r.packaging, f"{r.detail} {r.type} {r.variety}")
                            or r.packaging or self.default_packaging)
             r.cat = r.cat if r.cat not in ("", None) else self.default_cat
+            r.brand = r.brand if r.brand not in ("", None) else self.default_brand
             sizes = N.split_sizes(r.size, species)
             # "Dom. Rep. / Colombia": one row per origin, like grouped sizes
             for origin in N.split_origins(r.origin):
@@ -81,7 +85,13 @@ class Supplier:
                     c.group = str(r.size) if len(sizes) > 1 else ""
                     c.size = s if s not in ("", None) else "N/S"
                     out.append(c)
-        return remove_duplicates(check_per_kg(check_prices(out, result), result), result)
+        out = remove_duplicates(check_per_kg(check_prices(out, result), result), result)
+        for column in self.must_fill:
+            empty = sum(1 for r in out if getattr(r, FIELDS[column], None) in ("", None))
+            if empty:
+                result.warnings.append(f"{column} missing on {empty} of {len(out)} rows: "
+                                       f"the price list doesn't say it, fill in the red cells")
+        return out
 
 
 # ---------------------------------------------------------------- price sanity checks

@@ -4140,5 +4140,31 @@
    "Tommy Atkins",
    "Wonderful"
   ]
+ },
+ "SOLY": {
+  "file": "Soly Import.xlsx",
+  "sheets": {
+   "Hoja1": [
+    "DATE",
+    "SPECIE",
+    "VARIETY",
+    "CAT",
+    "WEIGHT (KG)",
+    "PACKAGING",
+    "BRAND",
+    "SIZE",
+    "ORIGIN",
+    "BOX PP",
+    "PRICE EUR",
+    "DETAIL"
+   ]
+  },
+  "varieties": [
+   "Gold Murcott",
+   "Hass",
+   "Kent",
+   "Nadorcott",
+   "Orri"
+  ]
  }
 }

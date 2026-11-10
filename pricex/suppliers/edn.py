@@ -44,7 +44,11 @@ class EDN(Supplier):
         def part(a, b):
             return " ".join(w.text for w in line.words if x[a] <= w.x0 < (x[b] if b else 10_000))
 
-        price = N.parse_price(part("price", "remark"))
+        # some of their PDFs use a font Python can't read the € and spaces of: they come out as '(cid:934)(cid:3)',
+        # and the price as '4 ,25'. The column says it's euros, so drop the codes and join the number.
+        price_txt = re.sub(r"\(cid:\d+\)", " ", part("price", "remark"))
+        price_txt = re.sub(r"(\d)\s+(?=[.,]\d)", r"\1", price_txt)
+        price = N.parse_price(price_txt) or N.parse_plain_price(price_txt)
         if price is None:
             return None                                    # "-": no price today, or a section line
         name = " ".join(w.text for w in line.words if w.x0 < x["origin"])
