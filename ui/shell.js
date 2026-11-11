@@ -133,6 +133,9 @@ const dqs = (() => {
     if (screens) showPrivate(screens);
   }
 
+  // a PC that unlocked them before opens them straight away (the key is kept in its settings)
+  call('private', 'remembered').then(screens => { if (screens) showPrivate(screens); });
+
   function showPrivate(screens) {
     document.getElementById('unlock-item').hidden = true;
     for (const screen of screens) {

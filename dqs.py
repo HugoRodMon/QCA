@@ -66,10 +66,13 @@ class Private:
         self._apps = {}
 
     def unlock(self, key):
-        """The private apps' screens, or None if the key is wrong. Checking takes a moment, on purpose."""
+        """The private apps' screens, or None if the key is wrong. Checking takes a moment, on purpose.
+        A right key is remembered on this PC (like the Fruit Counter's team key), so it's asked only once."""
         apps = locked.unlock(key.strip()) if key and key.strip() else None
         if not apps:
             return None
+        if common.load_settings().get("private_key") != key.strip():
+            common.remember("private_key", key.strip())
         screens = []
         for app in apps:
             try:
@@ -80,6 +83,17 @@ class Private:
             except Exception as e:                     # one broken app shouldn't hide the others
                 screens.append({"id": app["id"], "code": app["code"], "title": app["title"], "sub": app["description"],
                                 "html": f'<div class="banner bad" style="margin:24px 28px">This app couldn\'t start: {html.escape(str(e))}</div>', "js": ""})
+        return screens
+
+    def remembered(self):
+        """The private apps' screens if this PC has a key that still opens them (else None, and a key that no
+        longer works, after the key was changed, is forgotten)."""
+        key = common.load_settings().get("private_key")
+        if not key:
+            return None
+        screens = self.unlock(key)
+        if screens is None:
+            common.remember("private_key", "")
         return screens
 
     def call(self, app, method, args):
