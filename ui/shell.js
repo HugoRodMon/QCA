@@ -83,42 +83,54 @@ const dqs = (() => {
     });
   }
 
-  function openUnlock() {
-    const scrim = openModal(`<div class="modal"><div class="modal-title">Unlock more apps</div>
-      <div class="modal-text">Private apps open with the team's secret key. Ask the maintainer if you need it.</div>
-      <input type="password" placeholder="Secret key" autocomplete="off">
-      <div class="modal-error" hidden>That key isn't correct.</div>
-      <div class="modal-buttons"><button class="btn ghost" data-act="cancel">Cancel</button><button class="btn primary" data-act="unlock">Unlock</button></div></div>`, closeModal);
-    const input = scrim.querySelector('input');
-    const error = scrim.querySelector('.modal-error');
-    const button = scrim.querySelector('[data-act=unlock]');
-    let checking = false;
+  // asks for a key; check(key) resolves to something truthy when it's right. Resolves to that, or null if cancelled.
+  function askKey(title, text, placeholder, okLabel, check) {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = result => { if (!done) { done = true; resolve(result); } };
+      const scrim = openModal(`<div class="modal"><div class="modal-title">${esc(title)}</div>
+        <div class="modal-text">${esc(text)}</div>
+        <input type="password" placeholder="${esc(placeholder)}" autocomplete="off">
+        <div class="modal-error" hidden>That key isn't correct.</div>
+        <div class="modal-buttons"><button class="btn ghost" data-act="cancel">Cancel</button><button class="btn primary" data-act="ok">${esc(okLabel)}</button></div></div>`,
+        () => { closeModal(); finish(null); });
+      const input = scrim.querySelector('input');
+      const error = scrim.querySelector('.modal-error');
+      const button = scrim.querySelector('[data-act=ok]');
+      let checking = false;
 
-    const submit = async () => {
-      if (checking || !input.value.trim()) return;
-      checking = true;
-      error.hidden = true;
-      button.textContent = 'Checking…';
-      const screens = await call('private', 'unlock', input.value);
-      checking = false;
-      if (!modalRoot.contains(button)) { if (screens) showPrivate(screens); return; }
-      button.textContent = 'Unlock';
-      if (!screens) {
-        error.hidden = false;
-        input.value = '';
-        input.focus();
-        return;
-      }
-      closeModal();
-      showPrivate(screens);
-    };
-    modal.submit = submit;
-    input.addEventListener('input', () => { error.hidden = true; });
-    scrim.addEventListener('click', e => {
-      if (e.target === scrim || e.target.dataset.act === 'cancel') closeModal();
-      else if (e.target.dataset.act === 'unlock') submit();
+      const submit = async () => {
+        if (checking || !input.value.trim()) return;
+        checking = true;
+        error.hidden = true;
+        button.textContent = 'Checking…';
+        const result = await check(input.value);
+        checking = false;
+        if (!modalRoot.contains(button)) { finish(result || null); return; }   // closed while checking
+        button.textContent = okLabel;
+        if (!result) {
+          error.hidden = false;
+          input.value = '';
+          input.focus();
+          return;
+        }
+        closeModal();
+        finish(result);
+      };
+      modal.submit = submit;
+      input.addEventListener('input', () => { error.hidden = true; });
+      scrim.addEventListener('click', e => {
+        if (e.target === scrim || e.target.dataset.act === 'cancel') { closeModal(); finish(null); }
+        else if (e.target.dataset.act === 'ok') submit();
+      });
+      input.focus();
     });
-    input.focus();
+  }
+
+  async function openUnlock() {
+    const screens = await askKey('Unlock more apps', "Private apps open with the team's secret key. Ask the maintainer if you need it.",
+      'Secret key', 'Unlock', key => call('private', 'unlock', key));
+    if (screens) showPrivate(screens);
   }
 
   function showPrivate(screens) {
@@ -212,7 +224,7 @@ const dqs = (() => {
     if (!modal && view && view.onDrop && paths.length) view.onDrop(paths);
   });
 
-  const api = { esc, on, emit, call, addView, show, confirm, views, get current() { return current; } };
+  const api = { esc, on, emit, call, addView, show, confirm, askKey, views, get current() { return current; } };
   return api;
 })();
 

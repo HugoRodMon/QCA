@@ -13,6 +13,7 @@ from pricex.output import save_workbook
 
 from . import fruit_count as F
 from . import fruit_model as M
+from . import lessons as L
 from .common import IMAGE_TYPES, data_url, image_files, load_settings, picture_info, remember
 
 SHOWN_SIDE = 3000       # the picture on screen is at most this big; the marks stay in the real picture's pixels
@@ -46,8 +47,21 @@ class Api:
     def state(self):
         settings = load_settings()
         mode = settings.get("fruit_mode", M.DEFAULT_MODE)
+        L.send_soon()                                       # lessons left over from last time
         return {"out": settings.get("fruit_output", str(Path.home() / "Downloads" / "Fruit counts")),
-                "modes": M.mode_list(), "mode": mode if mode in M.MODES else M.DEFAULT_MODE}
+                "modes": M.mode_list(), "mode": mode if mode in M.MODES else M.DEFAULT_MODE,
+                "lessons": self.lessons()}
+
+    def lessons(self):
+        """Sharing corrected counts: on (this PC has the team key), share (the tick), pending (not sent yet)."""
+        return {"on": L.access() is not None, "share": load_settings().get("fruit_share", True), "pending": L.pending()}
+
+    def team_key(self, key):
+        """Remember the team key if it's right; returns the new lessons state, or None if the key is wrong."""
+        return self.lessons() if L.set_team_key(key) else None
+
+    def share(self, on):
+        remember("fruit_share", bool(on))
 
     def choose(self):
         types = "Pictures (" + ";".join(f"*{e}" for e in IMAGE_TYPES) + ")"
@@ -125,17 +139,27 @@ class Api:
     def open_out(self, folder):
         return self._host.open_folder(folder)
 
-    def save(self, pictures, out):
+    def save(self, pictures, out, share=False):
+        """share: the person checked every mark, so the pictures can be sent as lessons."""
         remember("fruit_output", out)
         counted = [Picture(p["path"], p["points"], p["detected"], p["added"], p["removed"], p["diameter"], p.get("mode")) for p in pictures]
-        threading.Thread(target=self._work, args=(counted, Path(out)), daemon=True).start()
+        threading.Thread(target=self._work, args=(counted, Path(out), pictures if share else []), daemon=True).start()
 
-    def _work(self, pictures, out):
+    def _work(self, pictures, out, lessons):
         try:
             workbook = write_results(pictures, out)
             self._host.emit("fruit.saved", {"workbook": workbook.name, "n": len(pictures), "folder": str(workbook.parent)})
         except Exception as e:
             self._host.emit("fruit.error", f"Could not save: {e}")
+            return
+        if lessons and L.access() is not None:
+            from version import __version__
+            for picture in lessons:
+                try:
+                    L.queue(picture, F.load_rgb(picture["path"]), __version__)
+                except Exception:
+                    pass                                    # a lesson less; the counts are saved all the same
+            L.send_soon()
 
 
 def write_results(pictures, folder):

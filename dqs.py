@@ -170,6 +170,9 @@ def self_check():
             problems.append(f"the screen file {name} is missing")
     if not locked.BUNDLE.exists():
         problems.append("the encrypted private apps are missing")
+    from apps import lessons
+    if not lessons.BUNDLE.exists():
+        problems.append("the Fruit Counter's encrypted Drive access (lessons.enc) is missing")
     try:
         import numpy as np
 

@@ -52,6 +52,21 @@ Hardest: lobed or irregular things counted automatically (peppers by their lobes
 under others in a full box, and empty tray cells next to a few fruit. Big piles take longer: about 30 s for
 350 grapes. The first count after opening the app also loads the model (a few seconds).
 
+### Sharing corrected counts (to make the counter better)
+
+With the **team key** (typed once per PC: "Help improve counting" under Save results), every picture saved with
+*Every mark checked* ticked is sent to the team's Google Drive as a lesson: a smaller copy of the picture, what the
+counter found and what the person corrected it to, with the count mode and the measured fruit. Lessons wait in
+`%APPDATA%\PriceExtractor\lessons` and are sent in the background, so saving never waits on the internet.
+
+- They go to the shared drive "Fruit Counter lessons" through a Google service account that is only a
+  **Contributor** there: it can add files and can't delete any. Its key is in `apps/locked/lessons.enc`, encrypted
+  with the team key; the key file itself (`dqsapps.json`) is never in the repository.
+- `python tools/fruit_lessons.py` downloads the new lessons, to tune the counter on them; the improved settings are
+  then published as a normal version.
+- New team key or new service account: `python tools/lock_lessons.py <key.json> <shared drive id> [--new-key]`
+  (the team key is kept in `private_apps/TEAM_KEY.txt`).
+
 ## Private apps
 
 "Unlock more apps" in the sidebar asks for the secret key. Without it these apps can't be used or read, not

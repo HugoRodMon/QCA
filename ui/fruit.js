@@ -6,7 +6,8 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
   const S = {
     pictures: [], current: null, image: null, width: 0, height: 0, zoom: 1, ox: 0, oy: 0, fitted: true,
     history: [], measuring: false, sensitivity: 70, out: '', busy: '', problem: '', saving: false, message: null,
-    modes: [], mode: 'pieces',     // what counts as one: a piece, a grape berry or a whole bunch...
+    modes: [], mode: 'pieces',
+    lessons: { on: false, share: true, pending: 0 },   // sending checked counts to the team's Drive, to tune on     // what counts as one: a piece, a grape berry or a whole bunch...
   };
   const loaded = new Map();   // path -> {image, width, height}
 
@@ -17,6 +18,7 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
       <div class="list" id="fc-list"></div>
       <div class="fc-total">
         <div class="fc-total-row"><div class="muted">Total, all pictures</div><div class="fc-total-number" id="fc-total">0</div></div>
+        <div class="fc-share" id="fc-share"></div>
         <button class="btn primary fc-save" data-a="save" id="fc-save">Save results</button>
         <div class="fc-caption" id="fc-caption"></div>
       </div>
@@ -138,7 +140,12 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
   }
 
   function drawSave() {
-    const m = S.message;
+    const m = S.message, l = S.lessons;
+    $('#fc-share').innerHTML = l.on
+      ? `<label class="fc-share-row" title="The pictures and your corrections go to the team's Google Drive, to make the counter better. Only tick it when every mark is right.">
+          <input type="checkbox" id="fc-share-box" ${l.share ? 'checked' : ''}><span>Every mark checked: share to improve counting</span></label>
+         ${l.pending ? `<div class="fc-share-note">${plural(l.pending, 'picture')} waiting to be sent</div>` : ''}`
+      : '<span class="link" data-a="team">Help improve counting: enter the team key</span>';
     $('#fc-save').disabled = S.saving || !S.pictures.some(p => p.done);
     $('#fc-save').textContent = S.saving ? 'Saving…' : 'Save results';
     $('#fc-caption').innerHTML = `Fruit counts.xlsx + marked pictures<br>to <span title="${esc(S.out)}">${esc(shortPath(S.out))}</span> · <span class="link" data-a="change">Change</span> · <span class="link" data-a="open">Open</span>
@@ -240,7 +247,8 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
       Object.assign(picture, { points: [], detected: 0, added: 0, removed: 0, done: false });
       if (picture === S.current) S.measuring = true;
     } else {
-      Object.assign(picture, { points: result.points, diameter: result.diameter, detected: result.points.length, added: 0, removed: 0, done: true });
+      Object.assign(picture, { points: result.points, diameter: result.diameter, detected: result.points.length, added: 0, removed: 0, done: true,
+        found: result.points.slice(), sensitivity: S.sensitivity });      // what it found, kept for the lessons
       if (picture === S.current) S.history = [];
     }
     if (picture === S.current) S.busy = '';
@@ -383,12 +391,16 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
   });
   on('fruit.saved', d => {
     S.saving = false;
+    setTimeout(async () => { S.lessons = await call('fruit', 'lessons'); drawSave(); }, 1500);
     S.message = { kind: 'good', text: `Saved ${d.workbook} and ${plural(d.n, 'marked picture')}.` };
     drawSave();
   });
   on('fruit.error', message => { S.saving = false; S.message = { kind: 'bad', text: message }; drawSave(); });
 
   $('#fc-sens').addEventListener('input', e => { S.sensitivity = +e.target.value; });
+  el.addEventListener('change', e => {
+    if (e.target.id === 'fc-share-box') { S.lessons.share = e.target.checked; call('fruit', 'share', e.target.checked); }
+  });
 
   // a different count mode counts the picture again: a measured berry says nothing about a bunch
   $('#fc-mode').addEventListener('change', async e => {
@@ -434,7 +446,12 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
       S.saving = true;
       S.message = null;
       drawSave();
-      call('fruit', 'save', counted.map(({ path, points, detected, added, removed, diameter, mode }) => ({ path, points, detected, added, removed, diameter, mode })), S.out);
+      call('fruit', 'save', counted.map(({ path, points, detected, added, removed, diameter, mode, found, example, sensitivity }) =>
+        ({ path, points, detected, added, removed, diameter, mode, found, example: example || null, sensitivity })), S.out, S.lessons.on && S.lessons.share);
+    } else if (act === 'team') {
+      const lessons = await dqs.askKey('Help improve counting', "With the team key, the counts you check and save are shared with the team's Google Drive, to make the counter better. Ask the maintainer for it.",
+        'Team key', 'Save key', key => call('fruit', 'team_key', key));
+      if (lessons) { S.lessons = lessons; drawSave(); }
     }
   });
 
@@ -449,6 +466,7 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
   call('fruit', 'state').then(state => {
     S.out = state.out;
     S.modes = state.modes;
+    S.lessons = state.lessons;
     S.mode = state.mode;
     S.pictures.forEach(p => { if (!p.done) p.mode = S.mode; });
     drawModes();
