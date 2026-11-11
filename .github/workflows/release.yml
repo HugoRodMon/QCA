@@ -59,10 +59,18 @@ jobs:
         shell: pwsh
         run: Copy-Item dist\DQSApps.exe dist\PriceExtractor.exe
 
+      # the notes are the commit's message (without the co-author line): its first line is what the app
+      # shows in the update card
+      - name: Write the release notes
+        shell: pwsh
+        run: |
+          $m = git log -1 --format=%B | Where-Object { $_ -notmatch "^Co-Authored-By:" }
+          ($m -join "`n").Trim() | Set-Content notes.md -Encoding utf8
+
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/DQSApps.exe
             dist/PriceExtractor.exe
-          generate_release_notes: true
+          body_path: notes.md

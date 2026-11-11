@@ -74,7 +74,7 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .update-card { background: var(--surface); border: 1px solid var(--border-field); border-radius: 9px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .update-head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .update-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-text); flex-shrink: 0; }
-.update-notes { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.update-notes { color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .update-bar { height: 4px; background: var(--border-field); border-radius: 2px; overflow: hidden; }
 .update-bar > div { height: 100%; background: var(--accent); }
 .update-buttons { display: flex; gap: 6px; }

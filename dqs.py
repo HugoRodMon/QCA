@@ -6,6 +6,7 @@ The work is done here in Python: each app has an Api class in apps/, which the s
 import base64
 import html
 import os
+import re
 import sys
 import threading
 from pathlib import Path
@@ -43,6 +44,18 @@ def _centre(window):
         form.Bounds = Rectangle(area.X + (area.Width - width) // 2, area.Y + (area.Height - height) // 2, width, height)
     except Exception:
         pass                                    # pywebview centres it itself, just without these checks
+
+
+def summary(notes):
+    """The first real line of a release's notes, as plain text: no markdown, no links, not GitHub's
+    'What's Changed' / 'Full Changelog' lines (those say nothing to the team)."""
+    for line in (notes or "").splitlines():
+        line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)          # [text](link) -> text
+        line = re.sub(r"https?://\S+", "", line)
+        line = re.sub(r"[*_`#>]+", "", line).strip(" -:")
+        if line and not re.match(r"(?i)(what's changed|full changelog|new contributors)\b", line):
+            return line
+    return ""
 
 
 class Private:
@@ -87,8 +100,7 @@ class Updates:
             return
         self._info = updater.check()
         if self._info:
-            notes = self._info["notes"].strip().splitlines()
-            line = notes[0].lstrip("#-* ").strip() if notes else ""
+            line = summary(self._info["notes"])
             self._host.emit("update.available", {"version": self._info["version"],
                                                  "notes": line[:80] + ("…" if len(line) > 80 else "")})
 
