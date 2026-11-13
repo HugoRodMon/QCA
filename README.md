@@ -11,6 +11,37 @@ with Windows 11 and up-to-date Windows 10; if it's missing, the app says where t
 | **Fruit Counter** | Marks every fruit on a picture (or every berry, bunch, punnet...); you check and correct the marks. Saves an Excel with the counts and the marked pictures. |
 | *Private apps* | Only with the secret key: see "Private apps". |
 
+## Price Extractor: China
+
+The switch next to the Price Extractor's title (**Europe | China**) opens the China side. It reads the cleaned
+WeChat market reports (the Word file the team makes from WeChat) and writes `China prices DD-MM-YYYY.xlsx` with a
+tab per product (CHERRIES, BLUEBERRY, CITRUS...) in **the same columns as "PLANILLA PRECIOS PARA DIGITAR.xlsx"**,
+so each tab's rows can be pasted straight into the same tab.
+
+- Headings set the market (Shanghai → SH, Guangzhou → GZ, Gaobeidian → GBD, Jiaxing → JX; a new market is one
+  line in `REGIONS` in `pricex/china.py`), the date (11-6, 11.7, 2026-11-7) and the product ("Chilean air-freight
+  cherries" → CHERRIES, AIR, CHILE; "Peru:3C" → PERU; "Domestic blueberries" → LAND; "old goods" → NEW = OLD).
+- Each line: `seller/volume/brand/variety/weight/size price,...,how it sold`, as in the team's tutorial
+  ("Precios para digitar"): 1C = 20 pallets and OCEAN, pallets AIR; `2*2.5KG` / `2IN1` → 5 kg, CARTON 2 IN 1;
+  avocados 4-5.6 kg CARTON, 10 kg PLASTIC; blueberries without a weight 1.5 kg; `20#22#120` = both sizes at 120;
+  for cherries `2J/2JD/270` goes in the size just before the price (2JD); a range is its lower price
+  (2500-2600 → 2500); the text after the prices is SOLD VOLUME. A line with two weights is split into two rows
+  that share the volume (1C → 10 + 10 pallets). Exactly the same row twice is kept once.
+- **Tabs**: each line is `general ⇥ sizes and prices ⇥ comment`, as the team prepares it. A line with a tab missing
+  is split by guessing and listed under "To check" (check the row); if its prices can't be found it isn't read and
+  the list asks to add the tabs. Sizes typed under another column (`SIZE_ALIASES`): cherries JL/2JL/3JL → J/2J/3J
+  (the L is "light", 4J → 4JL), grapes 2J/JJ → SJ, stone fruit 2J → JJ and 3J → P, mandarins 1X → X and 1XX → 2X.
+  Any other size without a column is listed to write by hand. "One price for every size" (统价, 不分规格, all
+  size, MIX) goes in N/S (or NS, S/N, Mix); stone fruit doesn't keep it, so those lines are left out.
+  Imported blueberries with no country are PERU (Chinese ones, LAND, have none).
+- Red cells: the line doesn't say it (a cherry box's weight). The CHECK tab lists lines that couldn't be read and
+  lines that were in the file twice (kept once).
+- Code: `pricex/china.py`. The sheets' columns are in `pricex/data/china_sheets.json` and the varieties already
+  used in each sheet in `pricex/data/china_varieties.json` (to split "FORTUNESWEET ARYANA" into brand and variety).
+
+Tested on Shanghai.docx against what the team typed: 65 of 71 rows identical; the rest are weights the WeChat
+line doesn't give (red, to fill in) and two prices the team took from elsewhere.
+
 ## Fruit Counter
 
 1. Drop the pictures. Each one is counted when you select it.

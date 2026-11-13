@@ -17,7 +17,7 @@ from apps import common, locked  # noqa: E402
 from version import __version__  # noqa: E402
 
 UI = Path(__file__).resolve().parent / "ui"
-UI_SCRIPTS = ("shell.js", "price.js", "image.js", "fruit.js")
+UI_SCRIPTS = ("shell.js", "china.js", "price.js", "image.js", "fruit.js")
 WEBVIEW2_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 
 
@@ -136,9 +136,10 @@ class Api:
     """Everything the screens can call. pywebview exposes public attributes only, so the rest starts with _."""
 
     def __init__(self, host):
-        from apps import fruit_counter, image_editor, price_extractor
+        from apps import china_prices, fruit_counter, image_editor, price_extractor
         self._host = host
         self.price = price_extractor.Api(host)
+        self.china = china_prices.Api(host)
         self.image = image_editor.Api(host)
         self.fruit = fruit_counter.Api(host)
         self.private = Private(host)

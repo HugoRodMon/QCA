@@ -12,10 +12,12 @@ dqs.addView('price', { code: 'PX', title: 'Price Extractor', sub: 'Supplier list
 
   el.innerHTML = `<div class="page">
     <header class="page-head"><div class="page-head-text">
-      <div class="page-title-row"><div class="page-title">Price Extractor</div><div class="pill">Europe</div></div>
-      <div class="muted">Daily supplier price lists to Excel, in the final files' columns.</div></div>
+      <div class="page-title-row"><div class="page-title">Price Extractor</div>
+        <div class="segment segment-small" id="px-region"><div data-region="europe" class="on">Europe</div><div data-region="china">China</div></div></div>
+      <div class="muted" id="px-sub">Daily supplier price lists to Excel, in the final files' columns.</div></div>
       <div class="muted small mono">${today}</div></header>
-    <div class="columns">
+    <div id="px-china" hidden></div>
+    <div class="columns" id="px-europe">
       <section class="card files-card" id="px-files"></section>
       <section class="output-col">
         <div class="card output-card">
@@ -27,6 +29,26 @@ dqs.addView('price', { code: 'PX', title: 'Price Extractor', sub: 'Supplier list
         <div id="px-results" style="display:flex;flex-direction:column;gap:14px;flex:1"></div>
       </section>
     </div></div>`;
+  // Europe | China: two ways in, one page. China is in china.js.
+  const SUBS = { europe: "Daily supplier price lists to Excel, in the final files' columns.",
+                 china: 'The cleaned WeChat market reports, split into the columns of the China file.' };
+  const chinaEl = el.querySelector('#px-china'), europeEl = el.querySelector('#px-europe');
+  const china = dqs.chinaPage(chinaEl);
+  let region = 'europe';
+  function showRegion(r) {
+    region = r;
+    europeEl.hidden = r !== 'europe';
+    chinaEl.hidden = r !== 'china';
+    el.querySelector('#px-sub').textContent = SUBS[r];
+    el.querySelectorAll('#px-region [data-region]').forEach(d => d.classList.toggle('on', d.dataset.region === r));
+    try { localStorage.setItem('px-region', r); } catch (e) { /* private window: just not remembered */ }
+  }
+  el.querySelector('#px-region').addEventListener('click', e => {
+    const d = e.target.closest('[data-region]');
+    if (d) showRegion(d.dataset.region);
+  });
+  try { if (localStorage.getItem('px-region') === 'china') showRegion('china'); } catch (e) { /* see above */ }
+
   const filesEl = el.querySelector('#px-files'), runEl = el.querySelector('#px-run'), resultsEl = el.querySelector('#px-results'), outEl = el.querySelector('#px-out');
 
   // ---------------------------------------------------------------- drawing
@@ -231,8 +253,9 @@ dqs.addView('price', { code: 'PX', title: 'Price Extractor', sub: 'Supplier list
     } else if (act === 'tab') { S.tab = target.dataset.tab; drawResults(); }
   });
 
-  hooks.onDrop = add;
+  hooks.onDrop = paths => (region === 'china' ? china.onDrop(paths) : add(paths));
   hooks.onKey = e => {
+    if (region === 'china') return;
     if (e.key === 'Delete' && !e.target.matches('input, select, textarea')) remove([...S.selected]);
   };
 

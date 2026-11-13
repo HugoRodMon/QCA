@@ -93,6 +93,7 @@ nav { display: flex; flex-direction: column; gap: 2px; }
 .pill { font-size: 11px; font-weight: 600; color: var(--accent-text); background: var(--accent-tint); padding: 3px 8px; border-radius: 20px; }
 .columns { display: flex; gap: 18px; flex-wrap: wrap; flex: 1 0 auto; align-items: stretch; }
 #view-price, #view-price .page { flex: 1 0 auto; }
+#px-china { display: flex; flex-direction: column; flex: 1 0 auto; }
 
 /* cards */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
@@ -192,6 +193,9 @@ body.dragging .files-card { border-color: var(--accent); }
 .segment { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 3px; }
 .segment div { padding: 5px 12px; border-radius: 5px; cursor: pointer; }
 .segment div.on { background: var(--border-field); }
+.segment-small div { padding: 3px 10px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.segment-small div.on { color: var(--accent-text); background: var(--accent-tint); }
+.table-grid.cn-grid { grid-template-columns: 56px minmax(0, 1fr) 110px 28px; }
 .ie-preview { flex: 1; min-height: 320px; background: #101114; border: 1px solid var(--hover); border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: hidden; position: relative; }
 .ie-preview img { max-width: 100%; max-height: 100%; border-radius: 4px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 .ie-bottom { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 42px; }
