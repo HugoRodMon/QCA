@@ -19,6 +19,7 @@ class Supplier:
                               # if one is found the supplier is certain, whatever the file is called
     layout_hints = []         # regexes typical of this supplier's layout (used when there's no identifier)
     file_types = (".pdf",)
+    name_wins = False         # True: the file name alone decides (a catch-all like Unknown, with no identity)
 
     # ---- output style
     layout = "long"           # "long": one row per size, a tab in the combined file

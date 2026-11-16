@@ -214,6 +214,14 @@ A final file with more than one tab automatically produces a separate file; one 
 
 **How files are recognised**: the file name is not trusted. A file belongs to a supplier when its text contains one of the supplier's `match_text` identifiers (web domain, e-mail, company name, Chamber of Commerce number), or, when there is none (WhatsApp messages), when its layout matches the supplier's `layout_hints` and the supplier's parser reads real products from it. The name only breaks ties (typos are fine). If the name and the content disagree, the content wins and the log says so; files that match no supplier are listed as not recognised. When adding a supplier, give it identifiers and layout hints.
 
+The one exception is **Unknown** (`pricex/suppliers/unknown.py`): prices from sources we don't know,
+collected in a file named `Unknown DD-MM-YYYY.txt`. It has no identity to look for, so the name decides.
+It reads a product heading (`*Mango Brazil update*`), an optional variety line (`Kent`) and sizes with their
+prices (`X 5. 1x280 : 6.25€` = size 5, 1 pallet of 280 boxes; `5kg size 14 = 1.5 pallets` followed by
+`7.50€ / box` = that price for the sizes above). The pallets go to DETAIL (`1x`, `1.5P`) and GGN numbers are
+skipped. When the box weight isn't given, mangoes get 4 kg; anything else stays empty, in red. Each new Unknown layout is added to the examples
+at the top of that file.
+
 **A supplier changed its layout, or a new supplier**: each supplier is one file in `pricex/suppliers/`
 (e.g. `kissao.py`). The top of each file shows what the layout looks like. To add a supplier, copy the one
 whose layout is most similar, change `name`, `final_file`, `match_names` (words in the file name) and the

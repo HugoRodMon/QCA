@@ -42,7 +42,7 @@ def identify(path, doc=None):
     """(supplier, how it was recognised, warning or ''). Without the content, only the name is used."""
     path = Path(path)
     hint = name_hint(path)
-    if doc is None:
+    if doc is None or getattr(hint, "name_wins", False):
         return hint, "file name", ""
     ext = path.suffix.lower()
     candidates = [s for s in suppliers() if ext in s.file_types]
