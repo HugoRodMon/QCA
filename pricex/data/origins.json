@@ -32,6 +32,7 @@
     "Uruguay": ["uy", "uruguay"],
     "USA": ["us", "usa", "united states"],
     "Vietnam": ["vn", "vietnam", "viet nam"],
-    "Zimbabwe": ["zw", "zim", "zimbabwe", "zimbawe"]
+    "Zimbabwe": ["zw", "zim", "zimbabwe", "zimbawe"],
+    "Jordan": ["jo", "jordan"]
   }
 }
