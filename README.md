@@ -36,6 +36,8 @@ so each tab's rows can be pasted straight into the same tab.
   Imported blueberries with no country are PERU (Chinese ones, LAND, have none).
 - Red cells: the line doesn't say it (a cherry box's weight). The CHECK tab lists lines that couldn't be read and
   lines that were in the file twice (kept once).
+- **Highlights are kept**: a line highlighted in Word (text highlighter or shading, most of the line) comes out
+  in the same colour on every row it becomes (a line split into two weights: both rows). Red cells stay red.
 - Code: `pricex/china.py`. The sheets' columns are in `pricex/data/china_sheets.json` and the varieties already
   used in each sheet in `pricex/data/china_varieties.json` (to split "FORTUNESWEET ARYANA" into brand and variety).
 

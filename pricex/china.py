@@ -89,6 +89,7 @@ class Row:
     values: dict = field(default_factory=dict)       # column heading -> value
     red: set = field(default_factory=set)            # headings to colour red (missing, to check)
     line: str = ""
+    highlight: str = None                            # hex colour the line was highlighted with in Word
 
 
 @dataclass
@@ -102,13 +103,49 @@ class Report:
 
 def read_docx(path):
     """The paragraphs, with their tabs as \\t (the team's separators)."""
+    return [text for text, _ in read_paragraphs(path)]
+
+
+# Word's highlighter colours (w:highlight) -> Excel fill colours
+HIGHLIGHTS = {"yellow": "FFFF00", "green": "00FF00", "cyan": "00FFFF", "magenta": "FF00FF", "blue": "0000FF",
+              "red": "FF0000", "darkBlue": "000080", "darkCyan": "008080", "darkGreen": "008000",
+              "darkMagenta": "800080", "darkRed": "800000", "darkYellow": "808000", "darkGray": "808080",
+              "lightGray": "C0C0C0", "black": "000000", "white": "FFFFFF"}
+
+
+def _mark(xml):
+    """The highlight (or shading) colour set in a run's or paragraph's properties, as hex, or None."""
+    m = re.search(r'<w:highlight w:val="(\w+)"', xml)
+    if m and m[1] in HIGHLIGHTS and m[1] != "white":
+        return HIGHLIGHTS[m[1]]
+    m = re.search(r'<w:shd [^>]*w:fill="([0-9A-Fa-f]{6})"', xml)
+    if m and m[1].upper() not in ("FFFFFF", "000000"):
+        return m[1].upper()
+    return None
+
+
+def read_paragraphs(path):
+    """(text, highlight colour or None) for each paragraph. A line counts as highlighted when the user
+    marked its text with Word's highlighter (or shading): the colour of most of its characters."""
     xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
-    lines = []
+    out = []
     for paragraph in re.findall(r"<w:p[ >].*?</w:p>", xml, re.S):
-        bits = re.findall(r"<w:t(?: [^>]*)?>([^<]*)</w:t>|(<w:tab/>)|(<w:br/>)", paragraph)
-        text = "".join(t if t else ("\t" if tab else " ") for t, tab, _ in bits)
-        lines.append(html.unescape(text).strip(" "))
-    return lines
+        props = re.search(r"<w:pPr>.*?</w:pPr>", paragraph, re.S)
+        whole = _mark(re.sub(r"<w:rPr>.*?</w:rPr>", "", props[0], flags=re.S)) if props else None
+        parts, colours = [], {}
+        for run in re.findall(r"<w:r[ >].*?</w:r>", paragraph, re.S):
+            rpr = re.search(r"<w:rPr>.*?</w:rPr>", run, re.S)
+            colour = (_mark(rpr[0]) if rpr else None) or whole
+            for t, tab, _ in re.findall(r"<w:t(?: [^>]*)?>([^<]*)</w:t>|(<w:tab/>)|(<w:br/>)", run):
+                piece = html.unescape(t) if t else ("\t" if tab else " ")
+                parts.append(piece)
+                if piece.strip():
+                    colours[colour] = colours.get(colour, 0) + len(piece.strip())
+        marked = {c: n for c, n in colours.items() if c}
+        total = sum(colours.values())
+        colour = max(marked, key=marked.get) if marked and sum(marked.values()) * 2 >= total else None
+        out.append(("".join(parts).strip(" "), colour))
+    return out
 
 
 def normalise(text):
@@ -542,7 +579,7 @@ def size_column(headings, size, sheet):
 def extract(path, year=None):
     year = year or date.today().year
     report, state = Report(), {}
-    for raw in read_docx(path):
+    for raw, highlight in read_paragraphs(path):
         line = raw.strip()
         if not line.strip():
             continue
@@ -556,10 +593,13 @@ def extract(path, year=None):
                 continue
             kept = 0
             for row in rows:
+                row.highlight = highlight             # highlighted in Word: every row it becomes stays so
                 if not state.get("date") or not state.get("region"):
                     row.red |= {h for h in (column(SHEETS[row.sheet], "DATE"), column(SHEETS[row.sheet], "REGION"))
                                 if h and h not in row.values}
-                if any(r.sheet == row.sheet and r.values == row.values for r in report.rows):
+                same = next((r for r in report.rows if r.sheet == row.sheet and r.values == row.values), None)
+                if same:
+                    same.highlight = same.highlight or highlight
                     continue                     # exactly the same row again: keep one
                 report.rows.append(row)
                 kept += 1
@@ -614,7 +654,9 @@ def write(report, folder):
                 if isinstance(cell.value, date):
                     cell.number_format = "DD/MM/YYYY"
                 if h in row.red:
-                    cell.fill = red
+                    cell.fill = red                  # missing values stay red, even on a highlighted row
+                elif row.highlight:
+                    cell.fill = PatternFill("solid", fgColor=row.highlight)
         for i, h in enumerate(headings, 1):
             ws.column_dimensions[ws.cell(1, i).column_letter].width = 14 if i <= 20 else 9
         ws.freeze_panes = "A2"
