@@ -368,8 +368,38 @@ def read_prices(text, sheet):
             groups[-1]["prices"][s] = price
         pending = []
 
+    def kind(e):
+        m = element.match(e.strip())
+        if m["size"] and not m["price"] and not m["tail"].strip():
+            return "size"
+        if m["price"] and not m["size"] and not m["tail"].strip() and not box_weight(e.strip(), sheet):
+            return "price"
+        return ""
+
+    def pair(elements):
+        """'15+/18+/65/75' -> '15+65/18+75': as many prices as sizes, one each. One price for several sizes
+        stays as it is (all of them at that price); other counts are listed to check."""
+        out, i = [], 0
+        while i < len(elements):
+            j = i
+            while j < len(elements) and kind(elements[j]) == "size":
+                j += 1
+            k = j
+            while k < len(elements) and kind(elements[k]) == "price":
+                k += 1
+            sizes, prices = j - i, k - j
+            if sizes >= 2 and prices == sizes:
+                out += [f"{elements[i + n].strip()} {elements[j + n].strip()}" for n in range(sizes)]
+                i = k
+                continue
+            if sizes >= 2 and prices >= 2:
+                problems.append(f"{sizes} sizes but {prices} prices ({'/'.join(elements[i:k])}): check the row")
+            out += elements[i:max(k, i + 1)]
+            i = max(k, i + 1)
+        return out
+
     for group in (g for g in re.split(r"[,;\s]+", t) if g):
-        elements = [e for e in group.split("/")]
+        elements = pair([e for e in group.split("/")])
         for i, e in enumerate(elements):
             e = e.strip()
             if not e:
@@ -422,8 +452,15 @@ def parse_line(line, state):
 
     # the team's layout: general TAB sizes and prices TAB comment. Without the tabs, find where prices start.
     general, prices, comment = segments[0], (segments[1] if len(segments) > 1 else ""), " ".join(segments[2:])
-    parts = [p.strip() for p in general.split("/")]
+    parts = [p.strip() for p in general.split("/") if p.strip()]     # '鹏升//2P': the empty part goes
     start = prices_start(parts, sheet)
+    only_sizes = re.compile(rf"(?:{_size_rx(sheet)})[#+]?", re.I)
+    if prices and start is not None and all(only_sizes.fullmatch(p) for p in parts[start:]):
+        # '.../L25/15+/ ⇥ 18+/70/90': the tab came one size too late; the size belongs with the prices
+        prices = "/".join(parts[start:] + [prices])
+        parts = parts[:start]
+        checks.append("a size was before the first tab: moved to the sizes and prices, check the row")
+        start = None
     if not prices or not read_prices(prices, sheet)[0]:
         if start is None:
             if len(segments) > 1:
