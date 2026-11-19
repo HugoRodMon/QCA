@@ -92,6 +92,13 @@ class Supplier:
             if empty:
                 result.warnings.append(f"{column} missing on {empty} of {len(out)} rows: "
                                        f"the price list doesn't say it, fill in the red cells")
+        guessed = {}
+        for r in out:
+            for column in r.guessed:
+                guessed[column] = guessed.get(column, 0) + 1
+        for column, n in guessed.items():
+            result.warnings.append(f"{column} filled with the usual value on {n} of {len(out)} rows "
+                                   f"(the price list doesn't say it): red, check it")
         return out
 
 

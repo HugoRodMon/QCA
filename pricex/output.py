@@ -71,6 +71,9 @@ def write_long_sheet(wb, supplier, results, tpl):
             for i in must_fill:                 # missing and needed: red, to be filled in by hand
                 if values[i - 1] is None:
                     ws.cell(ws.max_row, i).fill = SUSPECT
+            for i, h in enumerate(headers, 1):  # filled with a default: red too, to check
+                if h.strip().upper() in r.guessed:
+                    ws.cell(ws.max_row, i).fill = SUSPECT
     _finish(ws, len(headers))
     return n
 

@@ -18,6 +18,7 @@ class PriceRow:
     type: str = ""
     group: str = ""            # original grouped size ("6/7") when it was split into one row per size
     flag: str = ""             # set when the price looks wrong (shown red in the Excel)
+    guessed: tuple = ()        # columns filled with a default, not read ("WEIGHT (KG)",): red, to check
 
 
 # Output column name -> PriceRow attribute
