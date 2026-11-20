@@ -4365,5 +4365,27 @@
    ]
   },
   "varieties": []
+ },
+ "Atlantic Fruit": {
+  "file": "Atlantic Fruit.xlsx",
+  "sheets": {
+   "Hoja1": [
+    "DATE",
+    "SPECIE",
+    "VARIETY",
+    "ORIGIN",
+    "CAT",
+    "WEIGHT (KG)",
+    "PACKAGING",
+    "BRAND",
+    "SIZE",
+    "BOX PP",
+    "PRICE EUR",
+    "LOCATION",
+    "DETAIL",
+    "TYPE"
+   ]
+  },
+  "varieties": []
  }
 }
