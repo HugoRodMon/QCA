@@ -281,8 +281,9 @@ after typing a day by hand you can confirm the extractor would have produced the
 
 ## Releases and auto-update (for the team)
 
-The team uses `DQSApps.exe` from the GitHub Releases page. It checks GitHub every time it opens and,
-when there is a newer release, offers to update: it downloads the new exe, replaces itself and restarts.
+The team uses `DQSApps.exe` from the GitHub Releases page. It checks GitHub when it opens and every 30
+minutes while it stays open (so a version published during the day reaches people who keep it open). When there
+is a newer release it offers to update (once per version: 'Later' isn't asked again until the next one): it downloads the new exe, replaces itself and restarts.
 
 **Publishing a new version** (after committing and pushing your changes):
 

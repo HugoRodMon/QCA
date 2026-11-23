@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -103,22 +104,33 @@ class Private:
 
 
 class Updates:
+    EVERY = 30 * 60             # while the app is open, look for a new version this often (seconds)
+
     def __init__(self, host):
         self._host = host
         self._info = None
+        self._shown = None      # the version the card was shown for: shown again only for a newer one
+        self._installing = False
+        self._running = False
 
     def check(self):
-        """In the background when the window opens. Only the built .exe updates itself."""
+        """In the background when the window opens, then every EVERY seconds while it stays open, so a version
+        published during the day reaches people who keep the app open. Only the built .exe updates itself."""
         updater.cleanup_old()
-        if not updater.is_frozen():
+        if not updater.is_frozen() or self._running:
             return
-        self._info = updater.check()
-        if self._info:
-            line = summary(self._info["notes"])
-            self._host.emit("update.available", {"version": self._info["version"],
-                                                 "notes": line[:80] + ("…" if len(line) > 80 else "")})
+        self._running = True
+        while True:
+            info = None if self._installing else updater.check()
+            if info and info["version"] != self._shown and not self._installing:
+                self._info, self._shown = info, info["version"]
+                line = summary(info["notes"])
+                self._host.emit("update.available", {"version": info["version"],
+                                                     "notes": line[:80] + ("…" if len(line) > 80 else "")})
+            time.sleep(self.EVERY)
 
     def install(self):
+        self._installing = True
         threading.Thread(target=self._install, daemon=True).start()
 
     def _install(self):
@@ -127,6 +139,7 @@ class Updates:
         try:
             updater.install_and_restart(updater.download(self._info, progress))
         except Exception as e:
+            self._installing = False             # the checks carry on; the card offers it again
             self._host.emit("update.error", f"The update could not be installed: {e}. You can keep using this version.")
             return
         self._host.window.destroy()
