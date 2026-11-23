@@ -83,7 +83,9 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     }
     const chips = SUMMARY.filter(k => k in r.summary).map(k =>
       `<div class="rm-fact"><div class="label-up">${esc(k)}</div><div class="ellipsis">${esc(r.summary[k] || '—')}</div></div>`).join('');
-    const head = r.columns.map((c, i) => c ? `<th>${esc(c)}</th>`
+    // every name can be corrected (the website cuts long ones short); a missing one is yellow
+    const head = r.columns.map((c, i) => c
+      ? `<th><input class="rm-head" data-col="${i}" value="${esc(c)}" title="Click to correct the name (it's remembered for this website template)"></th>`
       : `<th class="rm-unknown"><input class="field" data-col="${i}" placeholder="name?" title="This column's name was a picture that couldn't be read: type it"></th>`).join('');
     const body = r.boxes.map((row, b) => `<tr><td class="rm-n">${b + 1}</td>${row.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('');
     pasteEl.innerHTML = `${r.problems.length ? `<div class="banner warn" style="margin:12px 16px 0">${r.problems.map(esc).join('<br>')}</div>` : ''}
@@ -94,8 +96,12 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
   pasteEl.addEventListener('change', async e => {
     const input = e.target.closest('[data-col]');
     if (!input) return;
+    const old = S.report.columns[+input.dataset.col];
+    const unticked = S.report.defects.filter(d => d.boxes && !S.chosen.has(d.name)).map(d => d.name);
     S.report = await call('remarks', 'name_column', +input.dataset.col, input.value);
-    S.chosen = new Set(S.report.defects.filter(d => d.boxes).map(d => d.name));
+    const renamed = S.report.columns[+input.dataset.col];
+    // keep the defects the person unticked unticked (also the one just renamed)
+    S.chosen = new Set(S.report.defects.filter(d => d.boxes && !unticked.includes(d.name === renamed ? old : d.name)).map(d => d.name));
     drawPaste(); drawWork(); refresh();
   });
 

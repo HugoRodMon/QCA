@@ -147,8 +147,16 @@ def read(grid, names=None, layouts=None):
 
     # names still missing: the layout remembered for this website template (same number of columns)
     known = (layouts or {}).get(report.summary.get("Template name", ""))
+    # and names typed in by hand win over what the pictures say: the website cuts long names short
+    # ('Dry stem (slight mo'), so a remembered name that starts the same is the full one
     if known and len(known) == len(columns):
-        columns = [c or k for c, k in zip(columns, known)]
+        def fits(read, kept):
+            if not read or not kept:
+                return True
+            a, b = read.lower().rstrip(" .…"), kept.lower()
+            return a == b or b.startswith(a)
+        if sum(1 for c, k in zip(columns, known) if fits(c, k)) >= 0.8 * len(columns):
+            columns = [k or c for c, k in zip(columns, known)]
 
     report.columns, report.pictures = columns, pictures
     report.raw = [[clean(c.get("t")) for c in r] + [""] * (width - len(r)) for r in body]

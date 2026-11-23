@@ -4387,5 +4387,63 @@
    ]
   },
   "varieties": []
+ },
+ "SCHRIJVERSHOF": {
+  "file": "SCHRIJVERSHOF.xlsx",
+  "sheets": {
+   "Hoja1": [
+    "DATE",
+    "SPECIE",
+    "ORIGIN",
+    "VARIETY",
+    "BRAND",
+    "PACKAGING",
+    "SIZE",
+    "WEIGHT (KG)",
+    "CAT",
+    "PRICE EUR",
+    "DETAIL"
+   ]
+  },
+  "varieties": [
+   "Allison",
+   "Clementine",
+   "Clementine Octubrina",
+   "Clemenule",
+   "Clemenules",
+   "Eureka",
+   "Fino",
+   "Formosa",
+   "Gember",
+   "Genoa",
+   "Hass",
+   "Hayward",
+   "Honey pomelo",
+   "Joybells",
+   "Keitt",
+   "Kent",
+   "Limoenen",
+   "Lisbon",
+   "Maluma Hass",
+   "Midknight",
+   "Mix Seedless",
+   "Nadorcott",
+   "Navel",
+   "Navel Late",
+   "Nova",
+   "Palmer",
+   "Primosole",
+   "Red",
+   "Rode pomelo",
+   "Satsuma",
+   "Seedless",
+   "Star Ruby",
+   "Sugraone Seedless",
+   "Sweet Joy",
+   "Valencia",
+   "Valencia/Late",
+   "White Marsh Seedless",
+   "Yellow"
+  ]
  }
 }

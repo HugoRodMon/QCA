@@ -26,6 +26,7 @@ PLACEHOLDERS = {
     "place": "inspection place",
     "origin": "origin",
     "variety": "varieties, joined ('Gala and Fuji')",
+    "varieties": "the varieties with the word: 'Gala variety', 'Gala and Fuji varieties'",
     "brand": "brands / labels",
     "box weight": "declared box weight in kg ('18.0')",
     "package": "the pack as written ('12x125g'), or the box weight ('18.0 kg')",
@@ -190,7 +191,9 @@ def _values(report, template, chosen=None):
     v["week"] = m[1] if m else ""
     v["place"] = report.summary.get("Inspection Place", "")
     v["origin"] = report.summary.get("Origin", "")
-    v["variety"] = joined(unique(report.column_values("Variety")))
+    names = unique(report.column_values("Variety"))
+    v["variety"] = joined(names)
+    v["varieties"] = f"{joined(names)} {'variety' if len(names) == 1 else 'varieties'}" if names else ""
     v["brand"] = joined(unique(report.column_values("Brand")))
     kg = box_weight(report)
     v["box weight"] = f"{kg:.1f}" if kg is not None else ""

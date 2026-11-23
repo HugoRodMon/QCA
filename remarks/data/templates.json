@@ -4,7 +4,7 @@
   {
    "client": "*",
    "product": "*",
-   "remark": "The inspection was carried out on [date] in [place]. Packaged in [package] [box type] boxes with [brand] label corresponding to [variety] variety, exported from [origin]. The main defects found, based on their average incidence, were [defects]. [temperature recorder]",
+   "remark": "The inspection was carried out on [date] in [place]. Packaged in [package] [box type] boxes with [brand] label corresponding to [varieties], exported from [origin]. The main defects found were [defects]. [temperature recorder]",
    "box": ""
   },
   {

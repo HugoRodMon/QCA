@@ -178,7 +178,14 @@ def read_html(path):
             msg = email.message_from_binary_file(f, policy=policy.default)
         for part in msg.walk():
             if part.get_content_type() == "text/html":
-                return part.get_content()
+                # the part's charset, else the page's own <meta charset> (Schrijvershof: UTF-8 'Brazilië'), else UTF-8
+                raw = part.get_payload(decode=True) or b""
+                m = re.search(rb"<meta[^>]+charset=[\"']?([\w-]+)", raw[:5000], re.I)
+                charset = part.get_content_charset() or (m[1].decode() if m else "utf-8")
+                try:
+                    return raw.decode(charset, errors="replace")
+                except LookupError:
+                    return raw.decode("utf-8", errors="replace")
         raise ValueError(f"No HTML found in {path.name}")
     return path.read_text(encoding="utf-8", errors="replace")
 

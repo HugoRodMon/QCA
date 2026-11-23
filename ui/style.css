@@ -306,3 +306,6 @@ body.dragging .files-card { border-color: var(--accent); }
 .rm-custom { display: grid; grid-template-columns: 150px 1fr 1fr 18px; gap: 6px; align-items: center; }
 .rm-custom input { padding: 3px 8px; font-size: 12px; min-width: 0; }
 .chip svg { width: 17px; height: 17px; }
+.rm-head { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 1px 4px; margin: -2px -4px; font-weight: 600; color: var(--text-2); field-sizing: content; min-width: 40px; max-width: 260px; outline: none; cursor: text; user-select: text; }
+.rm-head:hover { border-color: var(--border-field); }
+.rm-head:focus { border-color: var(--accent); background: var(--sidebar-bg); color: var(--text); }

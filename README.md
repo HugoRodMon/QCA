@@ -56,7 +56,8 @@ table), or the same report pasted into Excel first. Nothing is saved on the PC: 
 is open.
 
 - **Column names**: the website draws them as pictures of rotated text. The app reads them (the picture's own text,
-  its address, or OCR). A name it can't read shows as a yellow box to type it in. Once all are known, the column
+  its address, or OCR). A name it can't read shows as a yellow box to type it in; any other name can be clicked and
+  corrected (the website cuts long names short: 'Dry stem (slight mo'). Typed names win over the pictures next time. Once all are known, the column
   order is remembered for that website template ("Apples - Fresh Pride"), so the next paste, even from Excel where
   the pictures become `#VALUE!`, gets them by itself.
 - **Client and product**: from the summary's Business partner and the Product column; change them to use another
