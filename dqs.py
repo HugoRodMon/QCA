@@ -17,7 +17,7 @@ from apps import common, locked  # noqa: E402
 from version import __version__  # noqa: E402
 
 UI = Path(__file__).resolve().parent / "ui"
-UI_SCRIPTS = ("shell.js", "china.js", "price.js", "image.js", "fruit.js")
+UI_SCRIPTS = ("shell.js", "china.js", "price.js", "image.js", "fruit.js", "remarks.js")
 WEBVIEW2_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 
 
@@ -78,8 +78,8 @@ class Private:
             try:
                 module = locked.load_module(app)
                 self._apps[app["id"]] = module.Api(self._host)
-                screens.append({"id": app["id"], "code": app["code"], "title": app["title"], "sub": app["description"],
-                                "html": module.HTML, "js": module.JS})
+                screens.append({"id": app["id"], "code": app["code"], "icon": app.get("icon", ""), "title": app["title"],
+                                "sub": app["description"], "html": module.HTML, "js": module.JS})
             except Exception as e:                     # one broken app shouldn't hide the others
                 screens.append({"id": app["id"], "code": app["code"], "title": app["title"], "sub": app["description"],
                                 "html": f'<div class="banner bad" style="margin:24px 28px">This app couldn\'t start: {html.escape(str(e))}</div>', "js": ""})
@@ -136,12 +136,13 @@ class Api:
     """Everything the screens can call. pywebview exposes public attributes only, so the rest starts with _."""
 
     def __init__(self, host):
-        from apps import china_prices, fruit_counter, image_editor, price_extractor
+        from apps import china_prices, fruit_counter, image_editor, price_extractor, remarks
         self._host = host
         self.price = price_extractor.Api(host)
         self.china = china_prices.Api(host)
         self.image = image_editor.Api(host)
         self.fruit = fruit_counter.Api(host)
+        self.remarks = remarks.Api(host)
         self.private = Private(host)
         self.updates = Updates(host)
 
@@ -185,7 +186,7 @@ def self_check():
     """Every app and library really is in this build. Returns the problems found (used by the release check).
     With DQS_TEST_KEY set, the private apps are also decrypted and started."""
     problems = []
-    for name in ("apps.price_extractor", "apps.image_editor", "apps.fruit_counter", "cv2", "numpy", "webview", "clr",
+    for name in ("apps.price_extractor", "apps.image_editor", "apps.fruit_counter", "apps.remarks", "cv2", "numpy", "webview", "clr",
                  "webview.platforms.edgechromium", "cryptography.fernet", "pdfplumber", "openpyxl.styles", "uuid",
                  "winrt.windows.media.ocr", "rapidocr_onnxruntime"):
         try:
@@ -197,6 +198,16 @@ def self_check():
             problems.append(f"the screen file {name} is missing")
     if not locked.BUNDLE.exists():
         problems.append("the encrypted private apps are missing")
+    from apps import remarks as remark_app
+    if not remark_app.BUILT_IN.exists():
+        problems.append("the Remarks app's templates are missing")
+    try:
+        from remarks import render, report
+        r = report.read([[{"t": "Business partner:"}, {"t": "X"}], [{"t": n} for n in ("Product", "Variety", "Brand", "Packaging", "Bruises")],
+                         [{"t": v} for v in ("Apples", "Gala", "B", "18 kg carton", "1.0%")]])
+        render.render(render.pick([], "X", "Apples"), r)
+    except Exception as e:
+        problems.append(f"remarks: {e}")
     from apps import lessons
     if not lessons.BUNDLE.exists():
         problems.append("the Fruit Counter's encrypted Drive access (lessons.enc) is missing")

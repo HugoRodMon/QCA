@@ -1,5 +1,5 @@
 /* Fruit Counter: a first count on the picture, which the person corrects with the mouse. */
-dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct' }, (el, hooks) => {
+dqs.addView('fruit', { code: 'FC', icon: dqs.icons.harvest, title: 'Harvest', sub: 'Count fruit & correct' }, (el, hooks) => {
   const { esc, call, on, plural, shortPath, confirm } = dqs;
   const CLICK_MOVE = 4;       // moving less than this many pixels is a click, more is a drag
   const KEEP_LOADED = 6;      // pictures kept ready, for going back and forth without waiting
@@ -13,7 +13,7 @@ dqs.addView('fruit', { code: 'FC', title: 'Fruit Counter', sub: 'Count & correct
 
   el.innerHTML = `<div class="tool">
     <div class="panel-list fc-list">
-      <div class="panel-head"><div class="panel-title">Fruit Counter</div><div class="muted small">A first count for you to correct</div></div>
+      <div class="panel-head"><div class="panel-title">Harvest</div><div class="muted small">A first count for you to correct</div></div>
       <div class="dz dz-small" data-a="add">Drop pictures or folders</div>
       <div class="list" id="fc-list"></div>
       <div class="fc-total">

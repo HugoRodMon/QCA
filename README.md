@@ -6,12 +6,13 @@ with Windows 11 and up-to-date Windows 10; if it's missing, the app says where t
 
 | App | What it does |
 |---|---|
-| **Price Extractor - Europe** | Daily supplier price lists to Excel, in the final files' columns. Most of this document. |
-| **Image Editor** | The same edits on many pictures: rotate, mirror, cut to a ratio, resolutions, brightness, contrast, colour, sharpness, format. Originals are never changed. |
-| **Fruit Counter** | Marks every fruit on a picture (or every berry, bunch, punnet...); you check and correct the marks. Saves an Excel with the counts and the marked pictures. |
+| **Loot** (Price Extractor) | Daily supplier price lists to Excel, in the final files' columns. Most of this document. |
+| **Pixie** (Image Editor) | The same edits on many pictures: rotate, mirror, cut to a ratio, resolutions, brightness, contrast, colour, sharpness, format. Originals are never changed. |
+| **Harvest** (Fruit Counter) | Marks every fruit on a picture (or every berry, bunch, punnet...); you check and correct the marks. Saves an Excel with the counts and the marked pictures. |
+| **Draft** (Remarks) | Paste an inspection report from the website; the remark (and one line per box) comes out of the client's template, ready to copy. |
 | *Private apps* | Only with the secret key: see "Private apps". |
 
-## Price Extractor: China
+## Loot (Price Extractor): China
 
 The switch next to the Price Extractor's title (**Europe | China**) opens the China side. It reads the cleaned
 WeChat market reports (the Word file the team makes from WeChat) and writes `China prices DD-MM-YYYY.xlsx` with a
@@ -48,7 +49,40 @@ so each tab's rows can be pasted straight into the same tab.
 Tested on Shanghai.docx against what the team typed: 65 of 71 rows identical; the rest are weights the WeChat
 line doesn't give (red, to fill in) and two prices the team took from elsewhere.
 
-## Fruit Counter
+## Draft (Remarks)
+
+Click the Report area and press **Ctrl+V** with the report copied from the website (the summary on top and the boxes
+table), or the same report pasted into Excel first. Nothing is saved on the PC: the report stays only while the app
+is open.
+
+- **Column names**: the website draws them as pictures of rotated text. The app reads them (the picture's own text,
+  its address, or OCR). A name it can't read shows as a yellow box to type it in. Once all are known, the column
+  order is remembered for that website template ("Apples - Fresh Pride"), so the next paste, even from Excel where
+  the pictures become `#VALUE!`, gets them by itself.
+- **Client and product**: from the summary's Business partner and the Product column; change them to use another
+  template. The template is chosen exact client + product, then the client for any product, then the product for
+  any client, then the default.
+- **Defects**: every defect column with its average incidence (over the boxes where it was found, as the team writes
+  it) and in how many boxes. Untick the ones not to name in `[defects]`.
+- **Template** (left, editable) and **Remark** (right, to copy). Placeholders in square brackets: the chips under
+  the template insert them. Every summary label also works (`[vessel name]`, `[temptale]`, `[receiver]`) and so does
+  every column (`[count]`). Box lines (one per box) have their own template, e.g. `[weight check]`.
+- `[defects]` gives each defect's average (`bruises (2.82%)`), `[defects range]` its lowest and highest over the
+  boxes (`decay (0.0 - 3.5%)`). `[package]` keeps packs as written (`12x125g`) and gives boxes by weight (`18.0 kg`).
+  `[temperature recorder]`: 'Temperature recorder is attached to the report.' (recorders are, for more than one) or
+  'Temperature recorder was not found.'
+- **Placeholders…** (templates key): change what each placeholder says it means, and add your own, made of text and
+  other placeholders (`[pack line]` = `Packaged in [package] [box type] boxes`). Saved for everyone with the templates.
+- **Fresh Pride + Apples** (from the team's sheet): the remark adds the average weight, the category split worked
+  out from the defects (2nd cat / non standard / waste lists) and the grade (each box gets its worst defect's grade
+  from the tolerance tables, the final grade is the average). The rules are in `remarks/data/templates.json`.
+- **Everyone's templates**: *Save as everyone's template* changes the template for everybody (that client and
+  product, the client for any product, or the default). It needs the **templates key** (asked once per PC; it's in
+  `private_apps/TEMPLATES_KEY.txt`, made by `tools/lock_remarks.py`). The shared copy is a file on the team's Google
+  Drive (`remarks/remark templates.json`) that every PC reads without a key; the last copy is kept for when there's
+  no internet, and the templates that come with the app are used until there is a shared copy.
+
+## Harvest (Fruit Counter)
 
 1. Drop the pictures. Each one is counted when you select it.
 2. **Count** says what counts as one:

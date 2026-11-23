@@ -91,6 +91,14 @@ class Drive:
         """Add a file to a folder. Returns {id, name}."""
         return self._upload({"name": name, "parents": [parent]}, data, mime)
 
+    def replace(self, file_id, data, mime):
+        """New content for a file that's already there (same id, so its sharing link stays the same)."""
+        request = urllib.request.Request(
+            f"https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=media&supportsAllDrives=true"
+            f"&fields=id,name,modifiedTime", data=data, method="PATCH")
+        request.add_header("Content-Type", mime)
+        return self._call(request, timeout=120)
+
     def _upload(self, meta, data, mime):
         if data is None:                                            # a folder: metadata only
             request = urllib.request.Request(f"{API}/files?supportsAllDrives=true&fields=id,name",

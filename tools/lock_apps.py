@@ -19,8 +19,8 @@ from apps.locked import BUNDLE, lock, unlock  # noqa: E402
 PRIVATE = ROOT / "private_apps"
 KEY_FILE = PRIVATE / "KEY.txt"
 APPS = [
-    {"id": "invoice_to_excel", "code": "IX", "title": "Invoices to Excel", "description": "PDF invoices → Excel"},
-    {"id": "file_renamer", "code": "FR", "title": "File Renamer", "description": "Number files in order"},
+    {"id": "invoice_to_excel", "code": "IX", "icon": "vault", "title": "Vault", "description": "PDF invoices → Excel"},
+    {"id": "file_renamer", "code": "FR", "icon": "stack", "title": "Stack", "description": "Number files in order"},
 ]
 LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"     # 32 signs, without the look-alikes 0/O and 1/I
 

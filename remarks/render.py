@@ -1,0 +1,286 @@
+"""A template with [placeholders] + a report -> the remark, and one line per box.
+
+A template (data/templates.json, or the shared copy):
+    {"client": "Fresh Pride", "product": "Apples",
+     "remark": "The inspection was carried out on [date] in [place]. ...",
+     "box": "[weight check]",                       one line per box ("" = no box lines)
+     "categories": {"2nd cat": [...], "non standard": [...], "waste": [...]},   optional: which defect goes where
+     "grade": {"tables": {name: [[from %, grade], ...]}, "defects": {defect: table name}}}   optional
+
+Placeholders are case-insensitive. Every summary label works as one ([business partner], [vessel name],
+[temptale]...), and so does every column of the boxes table ([variety], [count]...). The computed ones are in
+PLACEHOLDERS below.
+"""
+import math
+import re
+from datetime import datetime
+
+from .report import Percent
+
+MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+          "november", "december"]
+# the computed placeholders, with what they give (shown in the app as help)
+PLACEHOLDERS = {
+    "date": "inspection date, as 'november 17th'",
+    "week": "inspection week",
+    "place": "inspection place",
+    "origin": "origin",
+    "variety": "varieties, joined ('Gala and Fuji')",
+    "brand": "brands / labels",
+    "box weight": "declared box weight in kg ('18.0')",
+    "package": "the pack as written ('12x125g'), or the box weight ('18.0 kg')",
+    "box type": "the box: carton, plastic...",
+    "defects": "the ticked defects with their average incidence",
+    "defects range": "the ticked defects with their lowest and highest % ('decay (0.0 - 3.5%)')",
+    "temperature recorder": "'Temperature recorder is attached to the report.' (or 'recorders are', or 'was not found.')",
+    "boxes": "number of boxes inspected",
+    "average weight": "average net weight of the boxes, in g",
+    "weight summary": "'The average weight recorded for the 18.0 kg samples was 18150 g and does not show underweight.'",
+    "1st cat": "average 1st category %",
+    "2nd cat": "average 2nd category %",
+    "non standard": "average non standard %",
+    "waste": "average waste %",
+    "grade": "final grade (templates with a grade table)",
+}
+BOX_PLACEHOLDERS = {
+    "box": "the box number",
+    "net weight": "its net weight, in g",
+    "weight check": "'The sample shows a 0.83% underweight, equivalent to 150g below the declared box weight.'",
+    "underweight %": "how much under the declared weight, in %",
+    "underweight g": "how much under the declared weight, in g",
+}
+NET_WEIGHT = ("Weight 1", "Net weight", "Weight")
+PLACEHOLDER = re.compile(r"\[([^\[\]\n]{1,40})\]")
+
+
+def number(x, digits=2):
+    """Like Excel's ROUND, shown without trailing zeros past one decimal: 83.175 -> 83.18, 0.70 -> 0.7, 5 -> 5."""
+    if isinstance(x, int):
+        return str(x)
+    r = math.floor(abs(x) * 10 ** digits + 0.5 + 1e-9) / 10 ** digits * (1 if x >= 0 else -1)
+    return str(int(r)) if digits == 0 else str(round(r, digits))
+
+
+def joined(items, word="and"):
+    items = [i for i in items if i]
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + f" {word} " + items[-1]
+
+
+def unique(values):
+    seen = []
+    for v in values:
+        v = str(v).strip() if v not in (None, "") else ""
+        if v and v not in seen:
+            seen.append(v)
+    return seen
+
+
+PACK = re.compile(r"(?i)(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|gr?|grams?)\b")
+
+
+def box_weight(report):
+    """The declared box weight in kg, from the packaging ('18 kg carton box' -> 18.0, '12x125g' -> 1.5)."""
+    packaging = str(report.first("Packaging"))
+    m = PACK.search(packaging)
+    if m:
+        each = float(m[2].replace(",", "."))
+        return round(int(m[1]) * each / (1 if m[3].lower() == "kg" else 1000), 3)
+    m = re.search(r"(?i)(\d+(?:[.,]\d+)?)\s*kg", packaging)
+    return float(m[1].replace(",", ".")) if m else None
+
+
+def package(report):
+    """'12x125g' as written for packs; '18.0 kg' for a box."""
+    m = PACK.search(str(report.first("Packaging")))
+    if m:
+        unit = "kg" if m[3].lower() == "kg" else "g"
+        return f"{m[1]}x{m[2].replace(',', '.')}{unit}"
+    kg = box_weight(report)
+    return f"{kg:.1f} kg" if kg is not None else ""
+
+
+def net_weights(report):
+    name = next((n for n in NET_WEIGHT if n in report.columns), None)
+    return [b.get(name) for b in report.boxes] if name else []
+
+
+def inspection_date(report):
+    text = report.summary.get("Inspection Date", "")
+    m = re.search(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", text)
+    if not m:
+        return None
+    try:
+        return datetime(int(m[3]), int(m[2]), int(m[1]))
+    except ValueError:
+        return None
+
+
+def ordinal(n):
+    return f"{n}{'th' if 11 <= n % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def categories(report, template):
+    """Average 1st cat / 2nd cat / non standard / waste %. With the template's defect -> category list they're
+    worked out from the defects (as Fresh Pride's sheet does); without it, the report's own columns are used."""
+    groups = (template or {}).get("categories")
+    out = {}
+    if groups:
+        per_box = {k: [] for k in ("1st cat", "2nd cat", "non standard", "waste")}
+        for box in report.boxes:
+            sums = {k: sum(float(box.get(d) or 0) for d in groups.get(k, []) if isinstance(box.get(d), (int, float)))
+                    for k in ("2nd cat", "non standard", "waste")}
+            for k, v in sums.items():
+                per_box[k].append(v)
+            per_box["1st cat"].append(100 - sum(sums.values()))
+        for k, values in per_box.items():
+            out[k] = sum(values) / len(values) if values else None
+        return out
+    for k, column in (("1st cat", "1st cat"), ("2nd cat", "2nd cat"), ("non standard", "Non standard"), ("waste", "Waste")):
+        values = [float(v) for v in report.column_values(column) if isinstance(v, (int, float))]
+        out[k] = sum(values) / len(values) if values else None
+    return out
+
+
+def grade(report, template):
+    """Each box's grade is its worst defect's (by the template's tables); the final grade is their average."""
+    g = (template or {}).get("grade")
+    if not g:
+        return None
+    grades = []
+    for box in report.boxes:
+        marks = []
+        for defect, table_name in g["defects"].items():
+            v = box.get(defect)
+            table = g["tables"].get(table_name)
+            if not table or not isinstance(v, (int, float)) or v <= 0:
+                continue
+            fitting = [row for row in table if row[0] <= v]            # Excel's XLOOKUP 'exact or next smaller'
+            if fitting:
+                best = max(r[0] for r in fitting)
+                marks.append(next(r[1] for r in table if r[0] == best))
+        grades.append(min(marks) if marks else max(r[1] for t in g["tables"].values() for r in t))
+    return sum(grades) / len(grades) if grades else None
+
+
+def values(report, template, chosen=None, custom=None):
+    """Every placeholder's text for this report. chosen: the defects to name in [defects] (None: all found).
+    custom: {name: text} placeholders made by the admin; their text can use the other placeholders."""
+    v = _values(report, template, chosen)
+    for _ in range(3):                                   # a custom one may use another custom one
+        for name, text in (custom or {}).items():
+            key = re.sub(r"\s+", " ", name).strip().lower()
+            if key:
+                v[key] = fill(text, v)[0]
+    return v
+
+
+def _values(report, template, chosen=None):
+    v = {}
+    for label, text in report.summary.items():
+        v[label.lower()] = text
+    for name in report.columns:
+        if name:
+            v.setdefault(name.lower(), joined(unique(report.column_values(name))))
+    day = inspection_date(report)
+    if day:
+        v["date"] = f"{MONTHS[day.month - 1]} {ordinal(day.day)}"
+    m = re.search(r"(?i)wk\.?\s*(\d+)", report.summary.get("Inspection Date", ""))
+    v["week"] = m[1] if m else ""
+    v["place"] = report.summary.get("Inspection Place", "")
+    v["origin"] = report.summary.get("Origin", "")
+    v["variety"] = joined(unique(report.column_values("Variety")))
+    v["brand"] = joined(unique(report.column_values("Brand")))
+    kg = box_weight(report)
+    v["box weight"] = f"{kg:.1f}" if kg is not None else ""
+    v["package"] = package(report)
+    m = re.search(r"(?i)(?:kg|g|gr)\.?\s*([a-z]+)", str(report.first("Packaging")))
+    v["box type"] = m[1].lower() if m and m[1].lower() not in ("box", "boxes") else "carton"
+    found = [(name, avg) for name, avg, n, _ in report.defects if n]
+    if chosen is not None:
+        found = [(name, avg) for name, avg in found if name in chosen]
+    v["defects"] = joined([f"{name.lower()} ({number(avg)}%)" for name, avg in found]) or "none"
+    ranges = []
+    for name, _ in found:                                # lowest and highest over all the boxes
+        values_ = [float(x) for x in report.column_values(name) if isinstance(x, (int, float))]
+        ranges.append(f"{name.lower()} ({min(values_):.1f} - {max(values_):.1f}%)")
+    v["defects range"] = joined(ranges) or "none"
+    temptale = re.sub(r"[^\d]", "", report.summary.get("Temptale", "") or "")
+    count = int(temptale) if temptale else 0
+    v["temperature recorder"] = ("Temperature recorder was not found." if not count else
+                                 "Temperature recorder is attached to the report." if count == 1 else
+                                 "Temperature recorders are attached to the report.")
+    v["boxes"] = str(len(report.boxes))
+    weights = [w for w in net_weights(report) if isinstance(w, (int, float))]
+    v["average weight"] = str(int(sum(weights) / len(weights))) if weights else ""
+    if weights and kg:                                   # as the Fresh Pride sheet writes it
+        avg = int(sum(weights) / len(weights))
+        v["weight summary"] = (f"The average weight recorded for the {kg:.1f} kg samples was {avg} g"
+                               + (" and does not show underweight." if kg * 1000 - avg <= 0 else "."))
+    else:
+        v["weight summary"] = ""
+    for k, avg in categories(report, template).items():
+        v[k] = number(avg) if avg is not None else ""
+    g = grade(report, template)
+    v["grade"] = number(g, 0) if g is not None else ""
+    return v
+
+
+def box_values(report, i, kg):
+    box = report.boxes[i]
+    v = {k.lower(): (number(float(x)) if isinstance(x, Percent) else str(x)) for k, x in box.items() if x not in (None, "")}
+    v["box"] = str(i + 1)
+    net = next((box.get(n) for n in NET_WEIGHT if isinstance(box.get(n), (int, float))), None)
+    v["net weight"] = str(net) if net is not None else ""
+    if net is not None and kg:
+        under = kg * 1000 - net
+        under = int(under) if float(under).is_integer() else round(under, 1)
+        pct = under * 100 / (kg * 1000)
+        v["underweight g"] = str(max(under, 0))
+        v["underweight %"] = number(max(pct, 0))
+        v["weight check"] = ("The sample shows a 0.0% underweight." if under <= 0 else
+                             f"The sample shows a {number(pct)}% underweight, equivalent to {under}g below the declared box weight.")
+    return v
+
+
+def fill(text, v):
+    """Replace the placeholders. Returns (text, [placeholders not known])."""
+    unknown = []
+
+    def put(m):
+        key = re.sub(r"\s+", " ", m[1]).strip().lower()
+        if key in v:
+            return v[key]
+        if m[0] not in unknown:
+            unknown.append(m[0])
+        return m[0]
+    return PLACEHOLDER.sub(put, text or ""), unknown
+
+
+def render(template, report, remark=None, box=None, chosen=None, custom=None):
+    """{'text', 'boxes': [lines], 'unknown': [placeholders], 'values': {placeholder: text}}."""
+    v = values(report, template, chosen, custom)
+    text, unknown = fill(template.get("remark", "") if remark is None else remark, v)
+    lines = []
+    box_text = template.get("box", "") if box is None else box
+    if box_text.strip():
+        kg = box_weight(report)
+        for i in range(len(report.boxes)):
+            line, missing = fill(box_text, {**v, **box_values(report, i, kg)})
+            lines.append(line)
+            unknown += [m for m in missing if m not in unknown]
+    return {"text": text, "boxes": lines, "unknown": unknown, "values": v}
+
+
+def pick(templates, client, product):
+    """The template for a client and product: exact, then the client's for any product, then the product's
+    for any client, then the default."""
+    def norm(s):
+        return re.sub(r"\s+", " ", str(s or "")).strip().lower()
+    c, p = norm(client), norm(product)
+    for want_c, want_p in ((c, p), (c, "*"), ("*", p), ("*", "*")):
+        for t in templates:
+            if norm(t.get("client")) == want_c and norm(t.get("product")) == want_p:
+                return t
+    return {"client": "*", "product": "*", "remark": "", "box": ""}

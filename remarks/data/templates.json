@@ -1,0 +1,38 @@
+{
+ "_help": "Remark templates that come with the app. The shared copy (saved from the app with the templates key) replaces this list for everyone. client/product '*' = any.",
+ "templates": [
+  {
+   "client": "*",
+   "product": "*",
+   "remark": "The inspection was carried out on [date] in [place]. Packaged in [package] [box type] boxes with [brand] label corresponding to [variety] variety, exported from [origin]. The main defects found, based on their average incidence, were [defects]. [temperature recorder]",
+   "box": ""
+  },
+  {
+   "client": "Fresh Pride",
+   "product": "Apples",
+   "remark": "The inspection was carried out on [date] in [place]. Packaged in [package] [box type] boxes with [brand] label corresponding to [variety] variety, exported from [origin]. The main defects found, based on their average incidence, were [defects]. [temperature recorder] [weight summary] The average fruit distribution across the categories is as follows: 1st cat: [1st cat]%, 2nd cat: [2nd cat]%, non standard: [non standard]%, and waste: [waste]%. Based on this distribution, the final grade is [grade]",
+   "box": "[weight check]",
+   "categories": {
+    "2nd cat": ["Deformed", "Handling damages", "Packing damages", "Russeting", "Skin defects", "Lack of colour", "Sunburn", "Lenticel"],
+    "non standard": ["Bruises", "Dehydration", "Mechanical damages", "Open injuries", "Scab", "Oily skin", "Bitterpit", "Low temperature damages", "Mould on stem", "Scald", "Watercore", "Cracking"],
+    "waste": ["Mould on blossom end", "Bulls eye", "Decay"]
+   },
+   "grade": {
+    "_help": "From the Fresh Pride sheet: a box gets the grade of its worst defect, the final grade is the boxes' average. [from %, grade]: the row with the highest 'from' at or below the defect's %.",
+    "tables": {
+     "minor": [[0, 9], [1, 8], [1, 7], [3, 6], [6, 5], [10, 4], [20, 3], [40, 2], [70, 1]],
+     "major": [[0, 6], [1.5, 5], [2, 4], [5, 3], [10, 2], [20, 1]],
+     "decay": [[0, 6], [0, 5], [1.5, 4], [2, 3], [5, 2], [10, 1]]
+    },
+    "defects": {
+     "Bruises": "minor", "Deformed": "minor", "Dehydration": "minor", "Handling damages": "minor",
+     "Packing damages": "minor", "Mechanical damages": "minor", "Russeting": "minor", "Skin defects": "minor",
+     "Lack of colour": "minor", "Sunburn": "minor",
+     "Open injuries": "major", "Scab": "major", "Oily skin": "major", "Low temperature damages": "major",
+     "Mould on stem": "major", "Watercore": "major", "Cracking": "major", "Bulls eye": "major",
+     "Decay": "decay", "Mould on blossom end": "decay"
+    }
+   }
+  }
+ ]
+}

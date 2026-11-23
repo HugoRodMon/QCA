@@ -46,7 +46,7 @@ const dqs = (() => {
 
   function drawNav() {
     const item = (id, v) => `<div class="nav-item${id === current ? ' on' : ''}" data-go="${esc(id)}">
-      <div class="chip">${esc(v.nav.code)}</div>
+      <div class="chip">${v.nav.icon || esc(v.nav.code)}</div>
       <div class="nav-text"><div class="nav-title ellipsis">${esc(v.nav.title)}</div><div class="nav-sub ellipsis">${esc(v.nav.sub)}</div></div></div>`;
     const entries = Object.entries(views);
     document.getElementById('nav').innerHTML = entries.filter(([, v]) => !v.nav.private).map(([id, v]) => item(id, v)).join('');
@@ -139,7 +139,7 @@ const dqs = (() => {
   function showPrivate(screens) {
     document.getElementById('unlock-item').hidden = true;
     for (const screen of screens) {
-      addView(screen.id, { code: screen.code, title: screen.title, sub: screen.sub, private: true }, (el, view) => {
+      addView(screen.id, { code: screen.code, icon: dqs.icons[screen.icon] || '', title: screen.title, sub: screen.sub, private: true }, (el, view) => {
         el.innerHTML = screen.html;
         if (screen.js) {
           const app = { call: (method, ...args) => call('private', 'call', screen.id, method, args) };
@@ -231,7 +231,19 @@ const dqs = (() => {
   return api;
 })();
 
-// the shared parts of the three public apps
+// the shared parts of the public apps
+// sidebar icons (line drawings in the text colour): Loot, Pixie, Harvest, Draft, and the private Vault and Stack
+dqs.icons = (() => {
+  const svg = body => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  return {
+    loot: svg('<path d="M9 3h6l-1.6 3.2h-2.8z"/><path d="M10.6 6.2C6.3 8.2 4 12 4 15.4 4 19 6.6 21 12 21s8-2 8-5.6c0-3.4-2.3-7.2-6.6-9.2"/><path d="M12 10.2v7.2M14.2 11.6h-3a1.3 1.3 0 0 0 0 2.6h1.6a1.3 1.3 0 0 1 0 2.6H9.8"/>'),
+    pixie: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.7"/><path d="M21 15.5l-5-5L7 20"/>'),
+    harvest: svg('<path d="M12 7.2c-1.5-1.2-3.6-1.6-5.3-.8C4.4 7.5 3.6 10.2 4.1 13c.7 4 3.3 8 5.9 8 .8 0 1.3-.4 2-.4s1.2.4 2 .4c2.6 0 5.2-4 5.9-8 .5-2.8-.3-5.5-2.6-6.6-1.7-.8-3.8-.4-5.3.8z"/><path d="M12 7.2c0-2 .9-3.6 3-4.4"/><path d="M12.8 5.2c1.2-1.6 3-1.9 4.4-1.2-.6 1.6-2.2 2.4-4.4 1.2z"/>'),
+    vault: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6M9 9h2"/>'),
+    stack: svg('<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 4.5l1.5-1V9"/><path d="M4 14a1.5 1.5 0 0 1 3 .2c0 1.3-3 2.3-3 3.8h3"/>'),
+    draft: svg('<path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M8 9h4M8 13h3M8 17h7"/><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L14 12.8l-3.6.9.9-3.6z"/>'),
+  };
+})();
 dqs.plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 dqs.shortPath = path => {
   const parts = String(path).split(/[\\/]/).filter(Boolean);

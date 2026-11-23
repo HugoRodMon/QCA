@@ -121,7 +121,8 @@ class Fruitfactor(Supplier):
 
 
 def is_size_word(t):
-    return bool(re.fullmatch(r"(?i)mix[\d/]*|[\d/]+\+?|\d+mm\+|\d+x\d+(kg|g)?|[smlx]{1,3}", t))
+    # grapes use J, JJ, 2J, XXL besides S/M/L/XL
+    return bool(re.fullmatch(r"(?i)mix[\d/]*|[\d/]+\+?|\d+mm\+|\d+x\d+(kg|g)?|[smlx]{1,3}|\d?j{1,2}|x{0,2}l", t))
 
 
 def size_headers(words):

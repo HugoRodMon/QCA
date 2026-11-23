@@ -6,6 +6,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [("pricex/data", "pricex/data"),
          ("ui", "ui"),                          # the screens
+         ("remarks/data", "remarks/data"),      # the Remarks app's own templates
          ("models", "models"),                  # the Fruit Counter's AI model (MobileSAM)
          ("apps/locked", "apps/locked")]        # the private apps, encrypted
 binaries = []

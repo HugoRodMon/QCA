@@ -1,5 +1,5 @@
 /* Price Extractor: the files on the left, where they go and what came out on the right. */
-dqs.addView('price', { code: 'PX', title: 'Price Extractor', sub: 'Supplier lists → Excel' }, (el, hooks) => {
+dqs.addView('price', { code: 'PX', icon: dqs.icons.loot, title: 'Loot', sub: 'Supplier prices → Excel' }, (el, hooks) => {
   const { esc, call, on, plural } = dqs;
   const S = {
     files: [], leftOut: [], out: '', phase: 'ready', progress: { i: 0, n: 0, name: '' },
@@ -12,7 +12,7 @@ dqs.addView('price', { code: 'PX', title: 'Price Extractor', sub: 'Supplier list
 
   el.innerHTML = `<div class="page">
     <header class="page-head"><div class="page-head-text">
-      <div class="page-title-row"><div class="page-title">Price Extractor</div>
+      <div class="page-title-row"><div class="page-title">Loot</div>
         <div class="segment segment-small" id="px-region"><div data-region="europe" class="on">Europe</div><div data-region="china">China</div></div></div>
       <div class="muted" id="px-sub">Daily supplier price lists to Excel, in the final files' columns.</div></div>
       <div class="muted small mono">${today}</div></header>

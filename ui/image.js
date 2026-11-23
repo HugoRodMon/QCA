@@ -1,5 +1,5 @@
 /* Image Editor: list of pictures, live preview, and the same edits for all of them. */
-dqs.addView('image', { code: 'IE', title: 'Image Editor', sub: 'Batch edit pictures' }, (el, hooks) => {
+dqs.addView('image', { code: 'IE', icon: dqs.icons.pixie, title: 'Pixie', sub: 'Batch edit pictures' }, (el, hooks) => {
   const { esc, call, on, plural, shortPath } = dqs;
   const DEFAULTS = { angle: 0, flip_h: false, flip_v: false, ratio: 'Keep', anchor: 'Center', resolution: 'Keep', custom_w: '', custom_h: '', fit: null, brightness: 100, contrast: 100, saturation: 100, sharpness: 100 };
   const S = {
@@ -9,7 +9,7 @@ dqs.addView('image', { code: 'IE', title: 'Image Editor', sub: 'Batch edit pictu
 
   el.innerHTML = `<div class="tool">
     <div class="panel-list ie-list">
-      <div class="panel-head"><div class="panel-title">Image Editor</div><div class="muted small">Originals are never changed</div></div>
+      <div class="panel-head"><div class="panel-title">Pixie</div><div class="muted small">Originals are never changed</div></div>
       <div class="dz dz-small" data-a="add">Drop pictures or folders</div>
       <div class="list" id="ie-list"></div>
       <div class="panel-footer" id="ie-footer"></div>

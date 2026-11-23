@@ -52,7 +52,8 @@ class Verdi(Supplier):
                 if a:
                     product, origin = a, text(r[1])
                 prices = (table[i + 1] + [None] * 20)[:20]
-                rows += self.product_rows(section, product, origin, r, prices)
+                if not N.is_ignored(section):     # a whole section we don't track ('Tomaten': 'Cherry Tros' too)
+                    rows += self.product_rows(section, product, origin, r, prices)
                 i += 2
         return rows
 

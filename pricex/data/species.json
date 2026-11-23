@@ -354,6 +354,9 @@
     "mollar": "Pomegranates"
   },
   "ignore": [
+    "tomaten",
+    "trostomaten",
+    "pruimtomaten",
     "lettuce",
     "iceberg",
     "ijsbergsla",
