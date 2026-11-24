@@ -54,10 +54,12 @@ ITEMS = [
 ]
 COUNTRIES = {"chile": "CHILE", "智利": "CHILE", "peru": "PERU", "秘鲁": "PERU", "south africa": "SOUTH AFRICA",
              "南非": "SOUTH AFRICA", "egypt": "EGYPT", "埃及": "EGYPT", "australia": "AUSTRALIA", "澳": "AUSTRALIA",
-             "new zealand": "NEW ZEALAND", "新西兰": "NEW ZEALAND", "argentina": "ARGENTINA", "spain": "SPAIN",
-             "morocco": "MOROCCO", "usa": "USA", "美国": "USA", "mexico": "MEXICO", "墨西哥": "MEXICO",
-             "canada": "CANADA", "加拿大": "CANADA", "kenya": "KENYA", "肯尼亚": "KENYA", "colombia": "COLOMBIA",
-             "turkey": "TURKEY", "italy": "ITALY", "greece": "GREECE", "brazil": "BRAZIL", "uruguay": "URUGUAY"}
+             "new zealand": "NEW ZEALAND", "新西兰": "NEW ZEALAND", "argentin": "ARGENTINA", "阿根廷": "ARGENTINA",
+             "spain": "SPAIN", "spanish": "SPAIN", "西班牙": "SPAIN", "morocco": "MOROCCO", "moroccan": "MOROCCO", "usa": "USA", "美国": "USA", "mexico": "MEXICO", "mexican": "MEXICO", "墨西哥": "MEXICO",
+             "canada": "CANADA", "canadian": "CANADA", "加拿大": "CANADA", "kenya": "KENYA", "肯尼亚": "KENYA", "colombia": "COLOMBIA",
+             "colombian": "COLOMBIA", "turkey": "TURKEY", "turkish": "TURKEY", "italy": "ITALY", "italian": "ITALY",
+             "greece": "GREECE", "greek": "GREECE", "brazil": "BRAZIL", "巴西": "BRAZIL", "uruguay": "URUGUAY",
+             "egyptian": "EGYPT", "australian": "AUSTRALIA"}
 PROVINCES = {"云南": "YUNNAN", "四川": "SICHUAN", "山东": "SHANDONG", "辽宁": "LIAONING", "贵州": "GUIZHOU",
              "广西": "GUANGXI", "海南": "HAINAN", "陕西": "SHAANXI", "新疆": "XINJIANG", "浙江": "ZHEJIANG"}
 AIR = r"(?i)\bair|空运"
@@ -126,7 +128,7 @@ def _mark(xml):
 
 def read_paragraphs(path):
     """(text, highlight colour or None) for each paragraph. A line counts as highlighted when the user
-    marked its text with Word's highlighter (or shading): the colour of most of its characters."""
+    marked any of its text with Word's highlighter (or shading), often just the brand: the colour used most."""
     xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
     out = []
     for paragraph in re.findall(r"<w:p[ >].*?</w:p>", xml, re.S):
@@ -142,8 +144,7 @@ def read_paragraphs(path):
                 if piece.strip():
                     colours[colour] = colours.get(colour, 0) + len(piece.strip())
         marked = {c: n for c, n in colours.items() if c}
-        total = sum(colours.values())
-        colour = max(marked, key=marked.get) if marked and sum(marked.values()) * 2 >= total else None
+        colour = max(marked, key=marked.get) if marked else None
         out.append(("".join(parts).strip(" "), colour))
     return out
 
@@ -352,21 +353,29 @@ def read_prices(text, sheet):
     t = re.sub(rf"({size_rx})-({size_rx})(?=/)", r"\1/\2", t)                           # '2JD-3JD/50'
     t = re.sub(r"(\d)\s*-\s+(?=\d?[JXL])", r"\1/", t)                                   # 'JD/460- 2JD/560'
     t = re.sub(rf"\b({MIX})\s*/?\s*", "MIX ", t)                                        # '统价50', 'MIX/50'
+    if sheet == "CHERRIES":
+        # '220-200.3JD/250': a dot after a price, before a size, separates them (it isn't 200.3)
+        t = re.sub(r"(\d{2,})\.(?=\d?J{1,2}D{0,2}\b|\d?J{1,2}D{0,2}/|X?L{1,2}D{0,2}\b|XL)", r"\1/", t)
+    # '2J&2JD/260': sizes joined with & share the price that follows ('&' marks the size that joins)
+    t = re.sub(rf"({size_rx})\s*&\s*(?=(?:{size_rx}))", r"\1/&", t)
     element = re.compile(rf"^(?P<size>MIX|{size_rx})?\s*(?P<price>{RANGE})?(?P<tail>.*)$")
     numberish = re.compile(rf"^(?:{size_rx}|{RANGE})")
 
     groups = [{"weight": None, "in_one": 1, "prices": {}}]
     comment, problems, pending = [], [], []
+    joined = 0                                            # how many of the last sizes were joined with '&'
 
     def give(price_text):
-        nonlocal pending
+        nonlocal pending, joined
         bits = [float(x) for x in re.findall(NUMBER, price_text)]
         price = min(bits)                                 # a range is written as its lower price
         price = int(price) if price.is_integer() else price
-        # cherries: the size just before the price ('2J/2JD/270' -> 2JD); the others: every size listed
-        for s in (pending[-1:] if sheet == "CHERRIES" else pending) or ["MIX"]:
+        # cherries: the size just before the price ('2J/2JD/270' -> 2JD), or the sizes joined with '&'
+        # ('2J&2JD/260' -> both); the others: every size listed
+        last = pending[-(joined + 1):] if joined else pending[-1:]
+        for s in (last if sheet == "CHERRIES" else pending) or ["MIX"]:
             groups[-1]["prices"][s] = price
-        pending = []
+        pending, joined = [], 0
 
     def kind(e):
         m = element.match(e.strip())
@@ -413,6 +422,9 @@ def read_prices(text, sheet):
             if re.fullmatch(r"\dIN1", e):
                 groups[-1]["in_one"] = int(e[0])
                 continue
+            if e.startswith("&"):
+                e = e[1:].strip()
+                joined += 1
             m = element.match(e)
             size, price, tail = m["size"], m["price"], m["tail"].strip()
             if size and not price and tail:               # 'MOVE', 'LEFT': words, not a size
@@ -533,11 +545,12 @@ def parse_line(line, state):
             h = column(headings, name)
             if h:
                 row.red.add(h)
+        white = sheet == "CHERRIES" and bool(re.search(WHITE_CHERRIES, f"{v.get('VARIETY', '')} {v.get('BRAND', '')}"))
         prices = {s: p for s, p in g["prices"].items() if not (s == "MIX" and sheet in DROP_MIX)}
         if not prices:
             continue                                  # only an 'all sizes' price, which this sheet doesn't keep
         for s, price in prices.items():
-            h = size_column(headings, s, sheet)
+            h = size_column(headings, s, sheet, white)
             if h:
                 row.values[h] = price
             else:
@@ -577,7 +590,10 @@ SIZE_ALIASES = {"GRAPES": {"2J": "SJ", "JJ": "SJ"},
 DROP_MIX = {"STONEFRUIT"}                    # 'all sizes' prices aren't typed on these sheets
 
 
-def size_column(headings, size, sheet):
+WHITE_CHERRIES = r"(?i)rain|ranier|yellow|黄|白"     # Rainier, Royal Rainier...: their plain XL is XLL, not XLD
+
+
+def size_column(headings, size, sheet, white=False):
     """The heading of a size's column on a sheet, or None."""
     size = size.upper().strip()
     size = SIZE_ALIASES.get(sheet, {}).get(size, size)
@@ -594,7 +610,7 @@ def size_column(headings, size, sheet):
         return None
     if sheet == "CHERRIES":
         m = re.fullmatch(r"(\d+(?:\.\d+)?)D", size)          # '9.5D' = 9.5 row = JD
-        want = CHERRY_ROWS.get(m[1], size) if m else {"XL": "XLD"}.get(size, size)
+        want = CHERRY_ROWS.get(m[1], size) if m else ({"XL": "XLL", "L": "LL"} if white else {"XL": "XLD", "L": "LD"}).get(size, size)
         for h in headings:
             if h.strip().upper().split(" ")[0].split("(")[0] == want:
                 return h
