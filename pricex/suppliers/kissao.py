@@ -213,7 +213,8 @@ class Kissao(Supplier):
 
     def make_row(self, c, price):
         product, variety, type_, brand = c["Product"], c["Variety"], "", ""
-        m = re.search(r"\s+(\d+(?:\s*[/-]+\s*\d+)+)$", variety)    # long size groups start left of the Size column
+        # long size groups start left of the Size column, after a variety or alone ('14/15/18/20')
+        m = re.search(r"(?:^|\s+)(\d+(?:\s*[/-]+\s*\d+)+)$", variety)
         if m:
             c["Size"] = (m[1] + " " + c["Size"]).strip()
             variety = variety[:m.start()]
