@@ -209,12 +209,16 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     }
   });
 
+  // inserted like typing, so Ctrl+Z takes a clicked placeholder or phrase back out (and Ctrl+Y puts it back)
   function insert(textarea, text) {
     const start = textarea.selectionStart, end = textarea.selectionEnd;
-    textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
-    textarea.selectionStart = textarea.selectionEnd = start + text.length;
     textarea.focus();
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.setSelectionRange(start, end);
+    if (!document.execCommand('insertText', false, text)) {       // (fires 'input' itself)
+      textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+      textarea.selectionStart = textarea.selectionEnd = start + text.length;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 
   async function copy(text, button) {
