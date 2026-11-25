@@ -23,13 +23,14 @@ MONTHS = ["january", "february", "march", "april", "may", "june", "july", "augus
 PLACEHOLDERS = {
     "date": "inspection date, as 'november 17th'",
     "week": "inspection week",
-    "place": "inspection place",
+    "place": "inspection place (or position and destination: 'Shanghai, China')",
     "origin": "origin",
     "variety": "varieties, joined ('Gala and Fuji')",
     "varieties": "the varieties with the word: 'Gala variety', 'Gala and Fuji varieties'",
     "brand": "brands / labels",
     "box weight": "declared box weight in kg ('18.0')",
     "package": "the pack as written ('12x125g'), or the box weight ('18.0 kg')",
+    "packages": "every packaging, whole: '10.0 kg plastic boxes and 4.0 kg carton boxes'",
     "box type": "the box: carton, plastic...",
     "defects": "the ticked defects with their average incidence",
     "defects range": "the ticked defects with their lowest and highest % ('decay (0.0 - 3.5%)')",
@@ -78,12 +79,14 @@ def unique(values):
     return seen
 
 
-PACK = re.compile(r"(?i)(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|gr?|grams?)\b")
+# packs: 12x125g, 8*400g, 6×1kg (always written back with an x)
+PACK = re.compile(r"(?i)(\d+)\s*[x*×]\s*(\d+(?:[.,]\d+)?)\s*(kg|gr?|grams?)\b")
 
 
-def box_weight(report):
-    """The declared box weight in kg, from the packaging ('18 kg carton box' -> 18.0, '12x125g' -> 1.5)."""
-    packaging = str(report.first("Packaging"))
+def box_weight(report, packaging=None):
+    """The declared box weight in kg, from the packaging ('18 kg carton box' -> 18.0, '12x125g' -> 1.5).
+    Without a packaging: the report's first one."""
+    packaging = str(report.first("Packaging") if packaging is None else packaging)
     m = PACK.search(packaging)
     if m:
         each = float(m[2].replace(",", "."))
@@ -92,14 +95,41 @@ def box_weight(report):
     return float(m[1].replace(",", ".")) if m else None
 
 
-def package(report):
+def package(report, packaging=None):
     """'12x125g' as written for packs; '18.0 kg' for a box."""
-    m = PACK.search(str(report.first("Packaging")))
+    packaging = str(report.first("Packaging") if packaging is None else packaging)
+    m = PACK.search(packaging)
     if m:
         unit = "kg" if m[3].lower() == "kg" else "g"
         return f"{m[1]}x{m[2].replace(',', '.')}{unit}"
-    kg = box_weight(report)
+    kg = box_weight(report, packaging)
     return f"{kg:.1f} kg" if kg is not None else ""
+
+
+def box_type(packaging):
+    """'10kg plastic box' -> 'plastic'; carton when it doesn't say."""
+    m = re.search(r"(?i)(?:kg|g|gr)\.?\s*([a-z]+)", str(packaging or ""))
+    return m[1].lower() if m and m[1].lower() not in ("box", "boxes") else "carton"
+
+
+def packages(report):
+    """Every packaging in the report: '10.0 kg plastic boxes and 4.0 kg carton boxes'."""
+    out = []
+    for p in unique(report.column_values("Packaging")):
+        text = f"{package(report, p)} {box_type(p)} boxes".strip()
+        if text not in out:
+            out.append(text)
+    return joined(out)
+
+
+def place(report):
+    """The inspection place; templates like Avocados - Westfalia give Position and Destination instead."""
+    s = report.summary
+    if s.get("Inspection Place"):
+        return s["Inspection Place"]
+    dest = s.get("Destination", "")
+    dest = dest.title() if dest.isupper() else dest                  # 'CHINA' -> 'China'
+    return ", ".join(x for x in (s.get("Position", ""), dest) if x)
 
 
 def net_weights(report):
@@ -189,7 +219,7 @@ def _values(report, template, chosen=None):
         v["date"] = f"{MONTHS[day.month - 1]} {ordinal(day.day)}"
     m = re.search(r"(?i)wk\.?\s*(\d+)", report.summary.get("Inspection Date", ""))
     v["week"] = m[1] if m else ""
-    v["place"] = report.summary.get("Inspection Place", "")
+    v["place"] = place(report)
     v["origin"] = report.summary.get("Origin", "")
     names = unique(report.column_values("Variety"))
     v["variety"] = joined(names)
@@ -198,8 +228,8 @@ def _values(report, template, chosen=None):
     kg = box_weight(report)
     v["box weight"] = f"{kg:.1f}" if kg is not None else ""
     v["package"] = package(report)
-    m = re.search(r"(?i)(?:kg|g|gr)\.?\s*([a-z]+)", str(report.first("Packaging")))
-    v["box type"] = m[1].lower() if m and m[1].lower() not in ("box", "boxes") else "carton"
+    v["box type"] = box_type(report.first("Packaging"))
+    v["packages"] = packages(report)
     found = [(name, avg) for name, avg, n, _ in report.defects if n]
     if chosen is not None:
         found = [(name, avg) for name, avg in found if name in chosen]
@@ -268,8 +298,8 @@ def render(template, report, remark=None, box=None, chosen=None, custom=None):
     lines = []
     box_text = template.get("box", "") if box is None else box
     if box_text.strip():
-        kg = box_weight(report)
         for i in range(len(report.boxes)):
+            kg = box_weight(report, report.boxes[i].get("Packaging", report.first("Packaging")))
             line, missing = fill(box_text, {**v, **box_values(report, i, kg)})
             lines.append(line)
             unknown += [m for m in missing if m not in unknown]

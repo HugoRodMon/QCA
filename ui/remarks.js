@@ -70,7 +70,7 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
   // ---------------------------------------------------------------- the report
   const SUMMARY = ['Business partner', 'Inspection Date', 'Inspection Place', 'Origin', 'Template name', 'Temptale', 'Container Nr', 'Receiver'];
 
-  function drawPaste() {
+  function drawPaste(keepScroll) {
     el.querySelector('[data-a=clear]').hidden = !S.report;
     if (S.reading) { pasteEl.innerHTML = '<div class="rm-empty"><div class="rm-hint">Reading the report…</div></div>'; return; }
     const r = S.report;
@@ -88,9 +88,12 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       ? `<th><input class="rm-head" data-col="${i}" value="${esc(c)}" title="Click to correct the name (it's remembered for this website template)"></th>`
       : `<th class="rm-unknown"><input class="field" data-col="${i}" placeholder="name?" title="This column's name was a picture that couldn't be read: type it"></th>`).join('');
     const body = r.boxes.map((row, b) => `<tr><td class="rm-n">${b + 1}</td>${row.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('');
+    const old = pasteEl.querySelector('.rm-scroll');
+    const keep = old && keepScroll ? [old.scrollLeft, old.scrollTop] : null;
     pasteEl.innerHTML = `${r.problems.length ? `<div class="banner warn" style="margin:12px 16px 0">${r.problems.map(esc).join('<br>')}</div>` : ''}
       <div class="rm-facts">${chips}</div>
       <div class="rm-scroll"><table class="rm-grid"><tr><th class="rm-n">#</th>${head}</tr>${body}</table></div>`;
+    if (keep) { const s = pasteEl.querySelector('.rm-scroll'); s.scrollLeft = keep[0]; s.scrollTop = keep[1]; }
   }
 
   pasteEl.addEventListener('change', async e => {
@@ -102,7 +105,7 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     const renamed = S.report.columns[+input.dataset.col];
     // keep the defects the person unticked unticked (also the one just renamed)
     S.chosen = new Set(S.report.defects.filter(d => d.boxes && !unticked.includes(d.name === renamed ? old : d.name)).map(d => d.name));
-    drawPaste(); drawWork(); refresh();
+    drawPaste(true); drawWork(); refresh();
   });
 
   // ---------------------------------------------------------------- the remark
@@ -121,6 +124,7 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       <input type="checkbox" data-defect="${esc(d.name)}"${S.chosen.has(d.name) ? ' checked' : ''}${d.boxes ? '' : ' disabled'}>
       <span>${esc(d.name)}</span><span class="mono rm-pct">${d.boxes ? d.avg + '%' : '—'}</span><span class="muted small">${d.boxes}/${r.boxes.length}</span></label>`).join('');
     const holders = Object.entries((S.state && S.state.placeholders) || {}).map(([k, v]) => `<span class="rm-ph" data-ph="[${esc(k)}]" title="${esc(v)}">[${esc(k)}]</span>`).join('');
+    const phrases = ((S.state && S.state.phrases) || []).map((p, i) => `<div class="rm-phrase" data-phrase="${i}" title="Add at the cursor">${esc(p)}</div>`).join('');
     const boxHolders = Object.entries((S.state && S.state.box_placeholders) || {}).map(([k, v]) => `<span class="rm-ph" data-bph="[${esc(k)}]" title="${esc(v)}">[${esc(k)}]</span>`).join('');
     workEl.innerHTML = `<div class="card-head"><div class="card-title">Remark</div>
         <div class="rm-who">
@@ -139,6 +143,11 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
           <div class="rm-col"><div class="rm-col-head"><div class="label-up">Remark</div><button class="btn btn-small primary" data-a="copy">Copy</button></div>
             <div class="rm-out selectable" id="rm-out"></div>
             <div class="small" id="rm-unknown" style="color:var(--warn-text)"></div></div>
+        </div>
+        <div class="rm-phrases-box">
+          <div class="rm-col-head"><div class="label-up">Phrases — click to add where the cursor is</div>
+            <button class="btn btn-small ghost" data-a="phrases" title="Change the list for everyone (needs the templates key)">Edit phrases…</button></div>
+          <div class="rm-phrases">${phrases || '<span class="muted small">No phrases yet: add them with Edit phrases (templates key).</span>'}</div>
         </div>
         <div class="rm-two">
           <div class="rm-col"><div class="rm-col-head"><div class="label-up">One line per box (template, empty = none)</div></div>
@@ -179,6 +188,10 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     }, 120);
   }
 
+  // the phrases go into the template last clicked in (the remark's or the box lines')
+  for (const kind of ['focusin', 'mousedown', 'keyup']) {
+    workEl.addEventListener(kind, e => { if (e.target.id === 'rm-remark' || e.target.id === 'rm-box') S.target = e.target.id; });
+  }
   workEl.addEventListener('input', e => {
     if (e.target.id === 'rm-remark') { S.remark = e.target.value; S.edited = true; refresh(); }
     else if (e.target.id === 'rm-box') { S.box = e.target.value; S.edited = true; refresh(); }
@@ -217,6 +230,14 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     if (ph) return insert(el.querySelector('#rm-remark'), ph.dataset.ph);
     const bph = e.target.closest('[data-bph]');
     if (bph) return insert(el.querySelector('#rm-box'), bph.dataset.bph);
+    const phrase = e.target.closest('[data-phrase]');
+    if (phrase) {
+      const area = el.querySelector('#' + (S.target || 'rm-remark'));
+      const text = S.state.phrases[+phrase.dataset.phrase];
+      const before = area.value.slice(0, area.selectionStart), after = area.value.slice(area.selectionEnd);
+      // a space before and after it when needed
+      return insert(area, (before && !/\s$/.test(before) ? ' ' : '') + text + (after && !/^\s/.test(after) ? ' ' : ''));
+    }
     const a = e.target.closest('[data-a]');
     if (!a) { if (e.target.closest('#rm-paste') && !e.target.closest('input')) pasteEl.focus(); return; }
     const act = a.dataset.a;
@@ -227,6 +248,7 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     else if (act === 'reset') { await loadTemplate(); S.note = ''; drawWork(); refresh(); }
     else if (act === 'save') save();
     else if (act === 'placeholders') openPlaceholders();
+    else if (act === 'phrases') openPhrases();
   });
 
   // ---------------------------------------------------------------- placeholders (admin)
@@ -236,6 +258,39 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       'Templates key', 'Continue', key => call('remarks', 'editor_key', key));
     if (state) S.state = state;
     return !!state;
+  }
+
+  function openPhrases() {
+    const s = S.state;
+    if (!s) return;
+    const box = document.createElement('div');
+    box.className = 'scrim';
+    box.innerHTML = `<div class="modal rm-holders">
+      <div class="modal-title">Phrases</div>
+      <div class="modal-text">One phrase per line. They show under the template and are added where the cursor is with a click.
+        They can use placeholders ([date], [varieties]...). Saved for everyone; needs the templates key.</div>
+      <textarea class="field rm-text" id="rm-phrase-list" spellcheck="false" style="min-height:300px">${esc((s.phrases || []).join('\n'))}</textarea>
+      <div class="modal-error" hidden></div>
+      <div class="modal-buttons"><button class="btn ghost" data-h="cancel">Cancel</button><button class="btn primary" data-h="save">Save for everyone</button></div></div>`;
+    el.appendChild(box);
+    box.querySelector('textarea').focus();
+    box.addEventListener('click', async e => {
+      if (e.target === box || e.target.dataset.h === 'cancel') return box.remove();
+      if (e.target.dataset.h !== 'save') return;
+      const list = box.querySelector('textarea').value.split('\n').map(l => l.trim()).filter(Boolean);
+      if (!(await needKey())) return;
+      e.target.textContent = 'Saving…';
+      const result = await call('remarks', 'save_phrases', list);
+      if (!result.ok) {
+        e.target.textContent = 'Save for everyone';
+        const err = box.querySelector('.modal-error'); err.textContent = result.error; err.hidden = false;
+        return;
+      }
+      S.state = result.state;
+      box.remove();
+      drawSource();
+      if (S.report) { S.note = 'Phrases saved for everyone.'; drawWork(); refresh(); }
+    });
   }
 
   function openPlaceholders() {

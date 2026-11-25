@@ -69,9 +69,14 @@ is open.
   the template insert them. Every summary label also works (`[vessel name]`, `[temptale]`, `[receiver]`) and so does
   every column (`[count]`). Box lines (one per box) have their own template, e.g. `[weight check]`.
 - `[defects]` gives each defect's average (`bruises (2.82%)`), `[defects range]` its lowest and highest over the
-  boxes (`decay (0.0 - 3.5%)`). `[package]` keeps packs as written (`12x125g`) and gives boxes by weight (`18.0 kg`).
-  `[temperature recorder]`: 'Temperature recorder is attached to the report.' (recorders are, for more than one) or
+  boxes (`decay (0.0 - 3.5%)`). `[packages]` gives every packaging whole (`10.0 kg plastic boxes and 4.0 kg carton boxes`);
+  `[package]` (one) keeps packs as written (`12x125g`; `8*400g` is written `8x400g`) and gives boxes by weight (`18.0 kg`).
+  `[place]` is the Inspection Place, or Position + Destination when the report has those instead
+  (`Shanghai, China`). Each box line's weight check uses that box's own packaging. `[temperature recorder]`: 'Temperature recorder is attached to the report.' (recorders are, for more than one) or
   'Temperature recorder was not found.'
+- **Phrases**: ready-made sentences under the template; a click adds one where the cursor is (in the remark or the
+  box line template, whichever was clicked last). *Edit phrases…* (templates key) changes the list for everyone,
+  one phrase per line; they can use placeholders.
 - **Placeholders…** (templates key): change what each placeholder says it means, and add your own, made of text and
   other placeholders (`[pack line]` = `Packaged in [package] [box type] boxes`). Saved for everyone with the templates.
 - **Fresh Pride + Apples** (from the team's sheet): the remark adds the average weight, the category split worked

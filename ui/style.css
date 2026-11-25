@@ -309,3 +309,7 @@ body.dragging .files-card { border-color: var(--accent); }
 .rm-head { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 1px 4px; margin: -2px -4px; font-weight: 600; color: var(--text-2); field-sizing: content; min-width: 40px; max-width: 260px; outline: none; cursor: text; user-select: text; }
 .rm-head:hover { border-color: var(--border-field); }
 .rm-head:focus { border-color: var(--accent); background: var(--sidebar-bg); color: var(--text); }
+.rm-phrases-box { display: flex; flex-direction: column; gap: 6px; }
+.rm-phrases { display: flex; flex-wrap: wrap; gap: 6px; max-height: 190px; overflow: auto; padding: 2px; }
+.rm-phrase { max-width: 100%; padding: 5px 10px; border-radius: 6px; background: var(--sunken); border: 1px solid var(--border-field); color: var(--text-2); cursor: pointer; line-height: 1.4; }
+.rm-phrase:hover { border-color: var(--accent); color: var(--text); }

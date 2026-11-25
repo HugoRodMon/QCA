@@ -72,7 +72,7 @@ class Api:
                 "saved": data.get("saved", ""), "placeholders": holders,
                 "box_placeholders": {k: meaning.get(k, v) for k, v in render.BOX_PLACEHOLDERS.items()},
                 "built_in": render.PLACEHOLDERS, "built_in_box": render.BOX_PLACEHOLDERS,
-                "meaning": meaning, "custom": custom}
+                "meaning": meaning, "custom": custom, "phrases": data.get("phrases", [])}
 
     def _custom(self):
         return {k: c.get("text", "") for k, c in (self._shared or self._built_in).get("custom", {}).items()}
@@ -196,6 +196,18 @@ class Api:
             data["meaning"] = {k: str(v).strip() for k, v in (meaning or {}).items()
                                if k in known and str(v).strip() and str(v).strip() != {**render.PLACEHOLDERS, **render.BOX_PLACEHOLDERS}[k]}
             data["custom"] = clean
+        return self._publish(change)
+
+    def save_phrases(self, phrases):
+        """Everyone's ready-made phrases (inserted into a template with a click). Needs the templates key."""
+        clean = []
+        for p in phrases or []:
+            text = " ".join(str(p).split())
+            if text and text not in clean:
+                clean.append(text)
+
+        def change(data):
+            data["phrases"] = clean
         return self._publish(change)
 
     def _put_template(self, data, client, product, remark, box):
