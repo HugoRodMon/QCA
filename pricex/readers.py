@@ -16,6 +16,7 @@ class Word:
     top: float
     size: float = 0
     bold: bool = False
+    red: bool = False           # printed in red (some suppliers mark prices that aren't final that way)
 
     @property
     def xc(self):
@@ -103,10 +104,10 @@ def pdf_lines(path, y_tol=1.6):
     with pdfplumber.open(path) as pdf:
         for pno, page in enumerate(pdf.pages):
             raw = page.extract_words(x_tolerance=1.5, y_tolerance=1, keep_blank_chars=False,
-                                     use_text_flow=False, extra_attrs=["size", "fontname"])
+                                     use_text_flow=False, extra_attrs=["size", "fontname", "non_stroking_color"])
             # some pdfs have no mapping for the euro glyph (or ™) and give U+FFFD instead
             words = [Word(fix_glyphs(w["text"]), w["x0"], w["x1"], w["top"], round(w["size"], 1),
-                          "bold" in w["fontname"].lower()) for w in raw]
+                          "bold" in w["fontname"].lower(), is_red(w.get("non_stroking_color"))) for w in raw]
             words.sort(key=lambda w: (w.top, w.x0))
             lines = []
             for w in words:
@@ -123,6 +124,28 @@ def pdf_lines(path, y_tol=1.6):
             lines.sort(key=lambda l: l.top)
             out.extend(lines)
     return out
+
+
+def is_red(colour):
+    """True for red text: RGB (1, 0, 0)-like or CMYK (0, 1, 1, 0)-like."""
+    try:
+        c = [float(x) for x in colour]
+    except (TypeError, ValueError):
+        return False
+    if len(c) == 3:
+        return c[0] > 0.6 and c[1] < 0.35 and c[2] < 0.35
+    if len(c) == 4:
+        return c[1] > 0.6 and c[2] > 0.6 and c[0] < 0.3 and c[3] < 0.4
+    return False
+
+
+def red_prices(doc):
+    """How many price-like words the pdf prints in red, and whether it has a red note about prices."""
+    words = [w for line in getattr(doc, "lines", []) or [] for w in line.words if getattr(w, "red", False)]
+    # a price: 9,50 or € 9.50 (not a date like 02.11)
+    prices = sum(1 for w in words if re.fullmatch(r"€\s*\d+[.,]\d{2}|\d+,\d{2}", w.text))
+    note = " ".join(w.text for w in words if not re.search(r"\d", w.text) and w.text.lower() not in ("exp", "eta", "€"))
+    return prices, bool(re.search(r"(?i)\bprices?\b", note))
 
 
 def fix_glyphs(text):

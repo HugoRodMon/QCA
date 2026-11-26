@@ -24,6 +24,7 @@ class Fruitfactor(Supplier):
     layout_hints = [r"product origin brand box pp packing weight size & price"]
     layout = "wide"
     origin_style = "name"
+    drop_not_final = True       # their red prices aren't final ('Prices are EXW...', in red): left out, listed
 
     def parse(self, doc):
         rows = []
@@ -113,7 +114,7 @@ class Fruitfactor(Supplier):
                 origin=between("origin", "brand"), brand=between("brand", "pp"),
                 box_pp=N.to_number(between("pp", "packing")),
                 packaging=N.packaging_from(between("packing", "weight")),
-                weight=N.parse_weight(between("weight", "grid")), size=size, price=cell["price"],
+                weight=N.parse_weight(between("weight", "grid")), size=size, price=cell["price"], not_final=cell.get("red", False),
                 detail=" ".join(v for v in (pack or size_pack, label_detail[0] if label_detail else "",
                                             "By Air" if "by air" in type_.lower() else "") if v),
                 type=type_ if "by air" not in type_.lower() else ""))
@@ -121,8 +122,9 @@ class Fruitfactor(Supplier):
 
 
 def is_size_word(t):
-    # grapes use J, JJ, 2J, XXL besides S/M/L/XL
-    return bool(re.fullmatch(r"(?i)mix[\d/]*|[\d/]+\+?|\d+mm\+|\d+x\d+(kg|g)?|[smlx]{1,3}|\d?j{1,2}|x{0,2}l", t))
+    # grapes use J, JJ, 2J, XXL besides S/M/L/XL, also two together ('XL/L', the size of a 'Mix')
+    one = r"(?:[smlx]{1,3}|\d?j{1,2}|x{0,2}l)"
+    return bool(re.fullmatch(rf"(?i)mix[\d/]*|[\d/]+\+?|\d+mm\+|\d+x\d+(kg|g)?|{one}(?:/{one})*", t))
 
 
 def size_headers(words):

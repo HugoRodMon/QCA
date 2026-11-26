@@ -50,11 +50,13 @@ def cells(words, gap=3.5):
     ('€', '1', '3,25' -> one cell '€ 1 3,25')."""
     out = []
     for w in words:
+        red = getattr(w, "red", False)
         if out and w.x0 - out[-1]["x1"] <= gap:
             out[-1]["text"] += " " + w.text
             out[-1]["x1"] = w.x1
+            out[-1]["red"] = out[-1]["red"] or red
         else:
-            out.append({"text": w.text, "x0": w.x0, "x1": w.x1})
+            out.append({"text": w.text, "x0": w.x0, "x1": w.x1, "red": red})
     for c in out:
         c["xc"] = (c["x0"] + c["x1"]) / 2
     return out

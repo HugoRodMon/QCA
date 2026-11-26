@@ -57,7 +57,7 @@ class EverestFresh(Supplier):
                     specie=f"{product} {section}", variety=product, origin=c["Origin"],
                     brand=c["Brand"], weight=N.parse_weight(c["Content"]),
                     detail=N.box_type(c["Pack"]), box_pp=N.to_number(c["Box pp"]),
-                    cat=N.to_number(c["Cat"]), size=sizes[i][0], price=cell["price"]))
+                    cat=N.to_number(c["Cat"]), size=sizes[i][0], price=cell["price"], not_final=cell.get("red", False)))
         return rows
 
 

@@ -188,6 +188,9 @@ Command line alternative: `python extract.py "folder or files" -o "output folder
 
 ## Rules applied to every supplier
 
+- **Prices printed in red** (in pdfs) may not be final: the summary says how many there are. Fruitfactor's red
+  prices are not final ('Prices are EXW...' in red): they're left out of the Excel and listed in the price checks.
+  For the others (C.Gottmann, Olympic, Everest Fresh) they're kept and marked red, and listed.
 - Only rows with a numeric price ("POR", "On request", "exp", dates... are skipped).
 - Grouped sizes are split into one row per size: `6/7`, `8-9-10`, `12 & 14`.
   A range follows the species' real sizes (`size_series` in `species.json`): mangoes `6-12` -> 6, 7, 8, 9, 10, 12;

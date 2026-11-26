@@ -69,5 +69,5 @@ class Olympic(Supplier):
                         origin=c["Origin"], brand=c["Brand"], weight=N.parse_weight(c["Contains"]),
                         cat=1 if c["Cat."] == "I" else 2 if c["Cat."] == "II" else c["Cat."],
                         packaging=c["Package"].upper(), box_pp=N.to_number(c["Boxes"]),
-                        detail=detail, size=size, price=cell["price"]))
+                        detail=detail, size=size, price=cell["price"], not_final=cell.get("red", False)))
         return rows

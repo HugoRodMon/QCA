@@ -32,6 +32,7 @@ class Supplier:
     default_packaging = "Carton"
     default_cat = ""          # CAT written when the price list doesn't say (e.g. 1)
     default_brand = ""        # BRAND written when the price list doesn't say (e.g. "Generic")
+    drop_not_final = False    # True: prices printed in red (not final yet) are left out and listed, not kept
     must_fill = ()            # columns that can't stay empty, e.g. ("WEIGHT (KG)",): an empty one is coloured
                               # red in the output and the report says so, for the person to fill in
 
@@ -51,6 +52,12 @@ class Supplier:
         for r in rows:
             if r.price is None or r.price <= 0:
                 continue
+            if r.not_final:
+                label = f"{r.specie} {r.variety} {r.origin} size {r.size or '?'} €{r.price:g}"
+                if self.drop_not_final:
+                    result.corrections.append(f"left out {label}: printed in red in the price list (not final)")
+                    continue
+                r.flag = r.flag or "printed in red in the price list: may not be final"
             if r.flag:                     # the parser wasn't sure about this row (e.g. read from a picture)
                 result.corrections.append(f"CHECK {r.specie} {r.variety} {r.origin} size {r.size or '?'} "
                                           f"€{r.price:g}: {r.flag} (kept, marked red)")

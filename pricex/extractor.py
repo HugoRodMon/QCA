@@ -121,6 +121,12 @@ def extract_file(path, supplier=None):
     if doc.kind == "image":
         result.warnings.append("read from a picture (OCR): compare the rows with the picture before using them; "
                                "red cells are rows with missing or unclear data")
+    red, red_note = readers.red_prices(doc)
+    if red:
+        result.warnings.append(
+            f"{red} price{'s are' if red > 1 else ' is'} printed in red{' (with a red note about prices)' if red_note else ''}: "
+            + ("not final, left out of the Excel (listed in the price checks)" if supplier.drop_not_final else
+               "they may not be final; marked red in the Excel where the supplier's reader knows them"))
     try:
         rows = supplier.parse(doc)
     except Exception:

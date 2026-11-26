@@ -74,6 +74,7 @@ class Gottmann(Supplier):
                 weight=N.parse_weight(part("weight", "eta")), cat=roman(part("class", "pack")),
                 packaging=PACKS.get(part("pack", "pp").upper(), part("pack", "pp")),
                 box_pp=int(pp[0]) if pp else None, size=sizes[i][0], price=price,
+                not_final=getattr(w, "red", False),                          # printed in red: may not be final
                 detail=" ".join(v for v in (pack, "Price/kg" if per_kg else "") if v)))
         return out
 
