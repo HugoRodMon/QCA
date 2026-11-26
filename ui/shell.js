@@ -44,10 +44,16 @@ const dqs = (() => {
     if (views[id].onShow) views[id].onShow();
   }
 
+  // the app DQS Apps opens on: the filled star (one at a time), kept in the settings file
+  const STAR = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></svg>';
+  let startApp = '';
+  call('shell', 'start').then(id => { startApp = id || ''; if (startApp && views[startApp]) show(startApp); drawNav(); });
+
   function drawNav() {
     const item = (id, v) => `<div class="nav-item${id === current ? ' on' : ''}" data-go="${esc(id)}">
       <div class="chip">${v.nav.icon || esc(v.nav.code)}</div>
-      <div class="nav-text"><div class="nav-title ellipsis">${esc(v.nav.title)}</div><div class="nav-sub ellipsis">${esc(v.nav.sub)}</div></div></div>`;
+      <div class="nav-text"><div class="nav-title ellipsis">${esc(v.nav.title)}</div><div class="nav-sub ellipsis">${esc(v.nav.sub)}</div></div>
+      <div class="nav-star${id === startApp ? ' on' : ''}" data-star="${esc(id)}" title="${id === startApp ? 'DQS Apps opens on this app (click to undo)' : 'Open DQS Apps on this app'}">${STAR}</div></div>`;
     const entries = Object.entries(views);
     document.getElementById('nav').innerHTML = entries.filter(([, v]) => !v.nav.private).map(([id, v]) => item(id, v)).join('');
     document.getElementById('nav-private').innerHTML = entries.filter(([, v]) => v.nav.private).map(([id, v]) => item(id, v)).join('');
@@ -134,9 +140,9 @@ const dqs = (() => {
   }
 
   // a PC that unlocked them before opens them straight away (the key is kept in its settings)
-  call('private', 'remembered').then(screens => { if (screens) showPrivate(screens); });
+  call('private', 'remembered').then(screens => { if (screens) showPrivate(screens, true); });
 
-  function showPrivate(screens) {
+  function showPrivate(screens, remembered) {
     document.getElementById('unlock-item').hidden = true;
     for (const screen of screens) {
       addView(screen.id, { code: screen.code, icon: dqs.icons[screen.icon] || '', title: screen.title, sub: screen.sub, private: true }, (el, view) => {
@@ -147,7 +153,9 @@ const dqs = (() => {
         }
       });
     }
-    if (screens.length) show(screens[0].id);
+    // typed the key: open the first one; remembered at start-up: only if it's the starred app
+    if (remembered) { if (screens.some(s => s.id === startApp)) show(startApp); }
+    else if (screens.length) show(screens[0].id);
   }
 
   // ---------------------------------------------------------------- update card
@@ -174,6 +182,13 @@ const dqs = (() => {
 
   // ---------------------------------------------------------------- clicks, keys, dragging
   document.addEventListener('click', e => {
+    const star = e.target.closest('[data-star]');
+    if (star) {
+      startApp = startApp === star.dataset.star ? '' : star.dataset.star;
+      call('shell', 'set_start', startApp);
+      drawNav();
+      return;
+    }
     const go = e.target.closest('[data-go]');
     if (go) return show(go.dataset.go);
     const act = e.target.closest('[data-act]');

@@ -103,6 +103,17 @@ class Private:
         return getattr(self._apps[app], method)(*args)
 
 
+class Shell:
+    """The window's own settings: which app opens first (the filled star in the sidebar)."""
+
+    def start(self):
+        return common.load_settings().get("start_app", "")
+
+    def set_start(self, app_id):
+        common.remember("start_app", app_id or "")
+        return app_id or ""
+
+
 class Updates:
     EVERY = 30 * 60             # while the app is open, look for a new version this often (seconds)
 
@@ -157,6 +168,7 @@ class Api:
         self.fruit = fruit_counter.Api(host)
         self.remarks = remarks.Api(host)
         self.private = Private(host)
+        self.shell = Shell()
         self.updates = Updates(host)
 
 

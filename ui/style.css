@@ -313,3 +313,10 @@ body.dragging .files-card { border-color: var(--accent); }
 .rm-phrases { display: flex; flex-wrap: wrap; gap: 6px; max-height: 190px; overflow: auto; padding: 2px; }
 .rm-phrase { max-width: 100%; padding: 5px 10px; border-radius: 6px; background: var(--sunken); border: 1px solid var(--border-field); color: var(--text-2); cursor: pointer; line-height: 1.4; }
 .rm-phrase:hover { border-color: var(--accent); color: var(--text); }
+
+.nav-star { margin-left: auto; flex-shrink: 0; width: 18px; height: 18px; color: var(--dim); opacity: .45; cursor: pointer; }
+.nav-star svg { width: 16px; height: 16px; fill: none; }
+.nav-item:hover .nav-star { opacity: 1; }
+.nav-star:hover { color: var(--text); }
+.nav-star.on { color: var(--warn); opacity: 1; }
+.nav-star.on svg { fill: currentColor; }
