@@ -124,7 +124,7 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       <input type="checkbox" data-defect="${esc(d.name)}"${S.chosen.has(d.name) ? ' checked' : ''}${d.boxes ? '' : ' disabled'}>
       <span>${esc(d.name)}</span><span class="mono rm-pct">${d.boxes ? d.avg + '%' : '—'}</span><span class="muted small">${d.boxes}/${r.boxes.length}</span>
       ${groupTag(d.name)}</label>`).join('');
-    const holders = Object.entries((S.state && S.state.placeholders) || {}).map(([k, v]) => `<span class="rm-ph" data-ph="[${esc(k)}]" title="${esc(v)}">[${esc(k)}]</span>`).join('');
+    const holders = Object.entries((S.state && S.state.placeholders) || {}).map(([k, v]) => `<span class="rm-ph" data-ph="[${esc(k)}]" title="${esc(v)} — click to add it, or to take it out if it's in the template">[${esc(k)}]</span>`).join('');
     const phrases = ((S.state && S.state.phrases) || []).map((p, i) => `<div class="rm-phrase" data-phrase="${i}" title="Add at the cursor">${esc(p)}</div>`).join('');
     const boxHolders = Object.entries((S.state && S.state.box_placeholders) || {}).map(([k, v]) => `<span class="rm-ph" data-bph="[${esc(k)}]" title="${esc(v)}">[${esc(k)}]</span>`).join('');
     workEl.innerHTML = `<div class="card-head"><div class="card-title">Remark</div>
@@ -174,6 +174,7 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       title="Group: ${groupOf(name) || 'none'} (click to change)">${GROUP_TAG[groupOf(name)]}</span>`;
 
   function drawOut() {
+    markChips();
     const out = S.out;
     const outEl = el.querySelector('#rm-out');
     if (!outEl) return;
@@ -204,8 +205,8 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     workEl.addEventListener(kind, e => { if (e.target.id === 'rm-remark' || e.target.id === 'rm-box') S.target = e.target.id; });
   }
   workEl.addEventListener('input', e => {
-    if (e.target.id === 'rm-remark') { S.remark = e.target.value; S.edited = true; refresh(); }
-    else if (e.target.id === 'rm-box') { S.box = e.target.value; S.edited = true; refresh(); }
+    if (e.target.id === 'rm-remark') { S.remark = e.target.value; S.edited = true; markChips(); refresh(); }
+    else if (e.target.id === 'rm-box') { S.box = e.target.value; S.edited = true; markChips(); refresh(); }
   });
   workEl.addEventListener('change', async e => {
     if (e.target.dataset.defect) {
@@ -219,6 +220,34 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       drawWork(); refresh();
     }
   });
+
+  // a placeholder chip: added at the cursor, or taken out when the template already has it
+  // (with the space next to it), through the editor so Ctrl+Z brings it back
+  function toggle(textarea, holder) {
+    const i = textarea.value.toLowerCase().indexOf(holder.toLowerCase());
+    if (i < 0) {                                          // a space before / after it when it would touch a word
+      const before = textarea.value.slice(0, textarea.selectionStart), after = textarea.value.slice(textarea.selectionEnd);
+      return insert(textarea, (/[\w\]]$/.test(before) ? ' ' : '') + holder + (/^[\w[]/.test(after) ? ' ' : ''));
+    }
+    let start = i, end = i + holder.length;
+    const v = textarea.value;
+    if (start > 0 && v[start - 1] === ' ' && (end >= v.length || /[\s.,;:)]/.test(v[end]))) start -= 1;
+    else if (end < v.length && v[end] === ' ' && (start === 0 || /\s/.test(v[start - 1]))) end += 1;
+    textarea.focus();
+    textarea.setSelectionRange(start, end);
+    if (!document.execCommand('delete')) {
+      textarea.value = v.slice(0, start) + v.slice(end);
+      textarea.selectionStart = textarea.selectionEnd = start;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  // the chips of the placeholders the template already has are lit (a click takes them out)
+  function markChips() {
+    const remark = (S.remark || '').toLowerCase(), box = (S.box || '').toLowerCase();
+    el.querySelectorAll('[data-ph]').forEach(c => c.classList.toggle('on', remark.includes(c.dataset.ph.toLowerCase())));
+    el.querySelectorAll('[data-bph]').forEach(c => c.classList.toggle('on', box.includes(c.dataset.bph.toLowerCase())));
+  }
 
   // inserted like typing, so Ctrl+Z takes a clicked placeholder or phrase back out (and Ctrl+Y puts it back)
   function insert(textarea, text) {
@@ -251,9 +280,9 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       return;
     }
     const ph = e.target.closest('[data-ph]');
-    if (ph) return insert(el.querySelector('#rm-remark'), ph.dataset.ph);
+    if (ph) return toggle(el.querySelector('#rm-remark'), ph.dataset.ph);
     const bph = e.target.closest('[data-bph]');
-    if (bph) return insert(el.querySelector('#rm-box'), bph.dataset.bph);
+    if (bph) return toggle(el.querySelector('#rm-box'), bph.dataset.bph);
     const phrase = e.target.closest('[data-phrase]');
     if (phrase) {
       const area = el.querySelector('#' + (S.target || 'rm-remark'));

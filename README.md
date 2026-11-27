@@ -66,7 +66,7 @@ is open.
 - **Defects**: every defect column with its average incidence (over the boxes where it was found, as the team writes
   it) and in how many boxes. Untick the ones not to name in `[defects]`.
 - **Template** (left, editable) and **Remark** (right, to copy). Placeholders in square brackets: the chips under
-  the template insert them. Every summary label also works (`[vessel name]`, `[temptale]`, `[receiver]`) and so does
+  the template insert them (a lit chip is already in the template: clicking it takes it out; Ctrl+Z undoes). Every summary label also works (`[vessel name]`, `[temptale]`, `[receiver]`) and so does
   every column (`[count]`). Box lines (one per box) have their own template, e.g. `[weight check]`.
 - `[defects]` gives each defect's average (`bruises (2.82%)`), `[defects name]` only their names, `[defects range]` its lowest and highest over the
   boxes (`decay (0.0 - 3.5%)`). `[packages]` gives every packaging whole (`10.0 kg plastic boxes and 4.0 kg carton boxes`);

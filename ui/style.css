@@ -325,3 +325,5 @@ body.dragging .files-card { border-color: var(--accent); }
 .rm-group:hover { color: var(--text); }
 .rm-group-quality { background: var(--accent-tint); color: var(--accent-text); }
 .rm-group-condition { background: var(--warn-bg); color: var(--warn-text); }
+
+.rm-ph.on { background: var(--accent-tint); color: var(--accent-text); }
