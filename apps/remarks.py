@@ -142,6 +142,12 @@ class Api:
             self._remember_layout()
         return self._view()
 
+    def set_summary(self, label, value):
+        """A summary value corrected by hand (Inspection Date, Place, Origin...): for this report only."""
+        if self._report:
+            self._report.summary[str(label)] = " ".join(str(value or "").split())
+        return self._view()
+
     def name_column(self, i, name):
         """A column name typed in by hand (a picture that couldn't be read)."""
         r = self._report

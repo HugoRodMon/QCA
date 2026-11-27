@@ -69,6 +69,8 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
 
   // ---------------------------------------------------------------- the report
   const SUMMARY = ['Business partner', 'Inspection Date', 'Inspection Place', 'Origin', 'Template name', 'Temptale', 'Container Nr', 'Receiver'];
+  // these can be corrected by hand (for this report only); they show even when the report doesn't have them
+  const EDITABLE = ['Inspection Date', 'Inspection Place', 'Origin', 'Container Nr', 'Receiver'];
 
   function drawPaste(keepScroll) {
     el.querySelector('[data-a=clear]').hidden = !S.report;
@@ -81,8 +83,10 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
         copied from the website (or from Excel).</div></div>`;
       return;
     }
-    const chips = SUMMARY.filter(k => k in r.summary).map(k =>
-      `<div class="rm-fact"><div class="label-up">${esc(k)}</div><div class="ellipsis">${esc(r.summary[k] || '—')}</div></div>`).join('');
+    const chips = SUMMARY.filter(k => k in r.summary || EDITABLE.includes(k)).map(k => EDITABLE.includes(k)
+      ? `<div class="rm-fact"><div class="label-up">${esc(k)}</div><input class="rm-fact-edit" data-fact="${esc(k)}" value="${esc(r.summary[k] || '')}"
+          placeholder="—" title="Click to correct it (for this report only)"></div>`
+      : `<div class="rm-fact"><div class="label-up">${esc(k)}</div><div class="ellipsis">${esc(r.summary[k] || '—')}</div></div>`).join('');
     // every name can be corrected (the website cuts long ones short); a missing one is yellow
     const head = r.columns.map((c, i) => c
       ? `<th><input class="rm-head" data-col="${i}" value="${esc(c)}" title="Click to correct the name (it's remembered for this website template)"></th>`
@@ -97,6 +101,12 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
   }
 
   pasteEl.addEventListener('change', async e => {
+    const fact = e.target.closest('[data-fact]');
+    if (fact) {                                           // a corrected summary value: the remark follows
+      S.report = await call('remarks', 'set_summary', fact.dataset.fact, fact.value);
+      refresh();
+      return;
+    }
     const input = e.target.closest('[data-col]');
     if (!input) return;
     const old = S.report.columns[+input.dataset.col];

@@ -60,6 +60,8 @@ is open.
   corrected (the website cuts long names short: 'Dry stem (slight mo'). Typed names win over the pictures next time. Once all are known, the column
   order is remembered for that website template ("Apples - Fresh Pride"), so the next paste, even from Excel where
   the pictures become `#VALUE!`, gets them by itself.
+- **Summary values**: Inspection Date, Inspection Place, Origin, Container Nr and Receiver can be clicked and
+  corrected (or filled in when the report doesn't have them), for the report on screen only.
 - **Client and product**: from the summary's Business partner and the Product column; change them to use another
   template. The template is chosen exact client + product, then the client for any product, then the product for
   any client, then the default.
