@@ -72,7 +72,32 @@ class Api:
                 "saved": data.get("saved", ""), "placeholders": holders,
                 "box_placeholders": {k: meaning.get(k, v) for k, v in render.BOX_PLACEHOLDERS.items()},
                 "built_in": render.PLACEHOLDERS, "built_in_box": render.BOX_PLACEHOLDERS,
-                "meaning": meaning, "custom": custom, "phrases": data.get("phrases", [])}
+                "meaning": meaning, "custom": custom, "phrases": data.get("phrases", []), "groups": self._groups()}
+
+    def _groups(self):
+        """Which defects are Quality and which Condition: everyone's (shared) with this PC's changes on top.
+        {defect name (lowercase): 'quality' | 'condition'}; '' on this PC takes one out of the shared groups."""
+        merged = dict((self._shared or self._built_in).get("defect_groups", {}))
+        merged.update(load_settings().get("remark_groups", {}))
+        return {k: v for k, v in merged.items() if v in render.GROUPS}
+
+    def set_group(self, defect, group):
+        """Put a defect in the Quality or Condition group ('' = none), on this PC."""
+        local = load_settings().get("remark_groups", {})
+        local[str(defect).strip().lower()] = group if group in render.GROUPS else ""
+        remember("remark_groups", local)
+        return self._groups()
+
+    def save_groups(self):
+        """This PC's groups become everyone's. Needs the templates key."""
+        groups = self._groups()
+
+        def change(data):
+            data["defect_groups"] = groups
+        result = self._publish(change)
+        if result.get("ok"):
+            remember("remark_groups", {})                # now part of everyone's
+        return result
 
     def _custom(self):
         return {k: c.get("text", "") for k, c in (self._shared or self._built_in).get("custom", {}).items()}
@@ -151,7 +176,8 @@ class Api:
         if not self._report:
             return {"text": "", "boxes": [], "unknown": [], "values": {}}
         t = render.pick(self._templates, client, product)
-        return render.render(t, self._report, remark, box, set(chosen) if chosen is not None else None, self._custom())
+        return render.render(t, self._report, remark, box, set(chosen) if chosen is not None else None, self._custom(),
+                             self._groups())
 
     # ---------------------------------------------------------------- everyone's defaults (templates key)
     def _editor(self, key=None):

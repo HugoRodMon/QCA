@@ -34,6 +34,10 @@ PLACEHOLDERS = {
     "box type": "the box: carton, plastic...",
     "defects": "the ticked defects with their average incidence",
     "defects range": "the ticked defects with their lowest and highest % ('decay (0.0 - 3.5%)')",
+    "defects name": "the ticked defects, names only: 'bruises, dehydration and decay'",
+    "quality defects": "average % of the defects in the Quality group (non-zero values only): '6.64'",
+    "condition defects": "average % of the defects in the Condition group (non-zero values only): '5.69'",
+    "defects by grower": "for each grower, its ticked defects with their range: 'grower D14914, skin defects (0.0 - 3.8%) ... and grower D6827, ...'",
     "temperature recorder": "'Temperature recorder is attached to the report.' (or 'recorders are', or 'was not found.')",
     "boxes": "number of boxes inspected",
     "average weight": "average net weight of the boxes, in g",
@@ -195,10 +199,49 @@ def grade(report, template):
     return sum(grades) / len(grades) if grades else None
 
 
-def values(report, template, chosen=None, custom=None):
+GROUPS = ("quality", "condition")
+GROWER = ("Grower", "Grower nr", "Grower code", "Ggn grower")
+
+
+def group_average(report, names):
+    """The average of every non-zero value of these defects over all the boxes (as Camposol's remarks): 6.64."""
+    values = [float(x) for name in names for x in report.column_values(name)
+              if isinstance(x, (int, float)) and float(x) > 0]
+    return sum(values) / len(values) if values else None
+
+
+def by_grower(report, chosen=None):
+    """'grower D14914, skin defects (0.0 - 3.8%) and decay (0.0 - 0.9%) and grower D6827, ...': for each grower,
+    the ticked defects found in its boxes, with their lowest and highest %."""
+    column = next((c for c in report.columns if c and c.lower() in [g.lower() for g in GROWER]), None)
+    if not column:
+        return ""
+    growers = unique(report.column_values(column))
+    parts = []
+    for grower in growers:
+        boxes = [b for b in report.boxes if str(b.get(column, "")).strip() == grower]
+        found = []
+        for name, _, n, _ in report.defects:
+            if not n or (chosen is not None and name not in chosen):
+                continue
+            values = [float(b[name]) for b in boxes if isinstance(b.get(name), (int, float))]
+            if values and max(values) > 0:
+                found.append(f"{name.lower()} ({min(values):.1f} - {max(values):.1f}%)")
+        if found:
+            parts.append(f"grower {grower}, " + joined(found))
+    return " and ".join(parts)
+
+
+def values(report, template, chosen=None, custom=None, groups=None):
     """Every placeholder's text for this report. chosen: the defects to name in [defects] (None: all found).
-    custom: {name: text} placeholders made by the admin; their text can use the other placeholders."""
+    custom: {name: text} placeholders made by the admin; their text can use the other placeholders.
+    groups: {defect name (lowercase): 'quality' | 'condition'}."""
     v = _values(report, template, chosen)
+    for group in GROUPS:                                 # Camposol: 'an average of 6.64% quality defects'
+        names = [n for n, _, _, _ in report.defects if (groups or {}).get(n.lower()) == group]
+        avg = group_average(report, names)
+        v[f"{group} defects"] = number(avg) if avg is not None else "0"
+    v["defects by grower"] = by_grower(report, chosen)
     for _ in range(3):                                   # a custom one may use another custom one
         for name, text in (custom or {}).items():
             key = re.sub(r"\s+", " ", name).strip().lower()
@@ -234,6 +277,7 @@ def _values(report, template, chosen=None):
     if chosen is not None:
         found = [(name, avg) for name, avg in found if name in chosen]
     v["defects"] = joined([f"{name.lower()} ({number(avg)}%)" for name, avg in found]) or "none"
+    v["defects name"] = joined([name.lower() for name, _ in found]) or "none"     # 'bruises, decay and scars'
     ranges = []
     for name, _ in found:                                # lowest and highest over all the boxes
         values_ = [float(x) for x in report.column_values(name) if isinstance(x, (int, float))]
@@ -291,9 +335,9 @@ def fill(text, v):
     return PLACEHOLDER.sub(put, text or ""), unknown
 
 
-def render(template, report, remark=None, box=None, chosen=None, custom=None):
+def render(template, report, remark=None, box=None, chosen=None, custom=None, groups=None):
     """{'text', 'boxes': [lines], 'unknown': [placeholders], 'values': {placeholder: text}}."""
-    v = values(report, template, chosen, custom)
+    v = values(report, template, chosen, custom, groups)
     text, unknown = fill(template.get("remark", "") if remark is None else remark, v)
     lines = []
     box_text = template.get("box", "") if box is None else box

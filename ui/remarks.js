@@ -122,7 +122,8 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     const clients = (S.state && S.state.clients) || [];
     const defects = r.defects.map(d => `<label class="rm-defect${d.boxes ? '' : ' rm-none'}" title="${d.boxes ? `Found in ${d.boxes} of ${r.boxes.length} boxes; ${d.all}% over all boxes` : 'Not found in any box'}">
       <input type="checkbox" data-defect="${esc(d.name)}"${S.chosen.has(d.name) ? ' checked' : ''}${d.boxes ? '' : ' disabled'}>
-      <span>${esc(d.name)}</span><span class="mono rm-pct">${d.boxes ? d.avg + '%' : '—'}</span><span class="muted small">${d.boxes}/${r.boxes.length}</span></label>`).join('');
+      <span>${esc(d.name)}</span><span class="mono rm-pct">${d.boxes ? d.avg + '%' : '—'}</span><span class="muted small">${d.boxes}/${r.boxes.length}</span>
+      ${groupTag(d.name)}</label>`).join('');
     const holders = Object.entries((S.state && S.state.placeholders) || {}).map(([k, v]) => `<span class="rm-ph" data-ph="[${esc(k)}]" title="${esc(v)}">[${esc(k)}]</span>`).join('');
     const phrases = ((S.state && S.state.phrases) || []).map((p, i) => `<div class="rm-phrase" data-phrase="${i}" title="Add at the cursor">${esc(p)}</div>`).join('');
     const boxHolders = Object.entries((S.state && S.state.box_placeholders) || {}).map(([k, v]) => `<span class="rm-ph" data-bph="[${esc(k)}]" title="${esc(v)}">[${esc(k)}]</span>`).join('');
@@ -134,7 +135,9 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
           <span class="tag ${S.own ? 'tone-new' : ''}" id="rm-from" style="${S.own ? '' : 'background:var(--raised);color:var(--muted)'}">Template: ${esc(S.from)}</span>
         </div></div>
       <div class="rm-body">
-        <div><div class="label-up" style="margin-bottom:6px">Defects to name — average incidence where found, boxes with it</div>
+        <div><div class="rm-col-head" style="margin-bottom:6px"><div class="label-up">Defects to name — average incidence where found, boxes with it
+            · <span title="Click the tag on a defect: – no group, Q quality, C condition">Q/C groups</span>: <span class="mono" id="rm-groups"></span></div>
+            <button class="btn btn-small ghost" data-a="save-groups" title="This PC's Quality / Condition groups become everyone's (needs the templates key)">Save groups for everyone…</button></div>
           <div class="rm-defects">${defects || '<span class="muted">No defect columns in this report.</span>'}</div></div>
         <div class="rm-two">
           <div class="rm-col"><div class="rm-col-head"><div class="label-up">Template (editable)</div></div>
@@ -164,6 +167,12 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     drawOut();
   }
 
+  // the Quality / Condition group of a defect (Camposol's remark): '–', 'Q' or 'C' on its chip
+  const GROUP_TAG = { quality: 'Q', condition: 'C', '': '–' };
+  const groupOf = name => ((S.state && S.state.groups) || {})[name.toLowerCase()] || '';
+  const groupTag = name => `<span class="rm-group rm-group-${groupOf(name) || 'none'}" data-group="${esc(name)}"
+      title="Group: ${groupOf(name) || 'none'} (click to change)">${GROUP_TAG[groupOf(name)]}</span>`;
+
   function drawOut() {
     const out = S.out;
     const outEl = el.querySelector('#rm-out');
@@ -176,6 +185,8 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
       : '<div class="muted small" style="padding:8px 0">No box lines for this template.</div>';
     el.querySelector('[data-a=copy-boxes]').hidden = !lines.length;
     el.querySelector('#rm-note').textContent = S.note;
+    const g = el.querySelector('#rm-groups');
+    if (g) g.textContent = out ? `Q ${out.values['quality defects']}% · C ${out.values['condition defects']}%` : '';
   }
 
   let timer = null;
@@ -230,6 +241,15 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
   }
 
   el.addEventListener('click', async e => {
+    const tag = e.target.closest('[data-group]');
+    if (tag) {                                            // – -> Q -> C -> –
+      e.preventDefault();                                 // (it's inside the defect's label: don't tick it)
+      const next = { '': 'quality', quality: 'condition', condition: '' }[groupOf(tag.dataset.group)];
+      S.state.groups = await call('remarks', 'set_group', tag.dataset.group, next);
+      tag.outerHTML = groupTag(tag.dataset.group);
+      refresh();
+      return;
+    }
     const ph = e.target.closest('[data-ph]');
     if (ph) return insert(el.querySelector('#rm-remark'), ph.dataset.ph);
     const bph = e.target.closest('[data-bph]');
@@ -253,6 +273,14 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     else if (act === 'save') save();
     else if (act === 'placeholders') openPlaceholders();
     else if (act === 'phrases') openPhrases();
+    else if (act === 'save-groups') {
+      if (!(await needKey())) return;
+      S.note = 'Saving the groups…'; drawOut();
+      const result = await call('remarks', 'save_groups');
+      S.note = result.ok ? 'Quality / Condition groups saved for everyone.' : result.error;
+      if (result.ok) S.state = result.state;
+      drawOut(); drawSource();
+    }
   });
 
   // ---------------------------------------------------------------- placeholders (admin)

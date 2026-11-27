@@ -68,12 +68,17 @@ is open.
 - **Template** (left, editable) and **Remark** (right, to copy). Placeholders in square brackets: the chips under
   the template insert them. Every summary label also works (`[vessel name]`, `[temptale]`, `[receiver]`) and so does
   every column (`[count]`). Box lines (one per box) have their own template, e.g. `[weight check]`.
-- `[defects]` gives each defect's average (`bruises (2.82%)`), `[defects range]` its lowest and highest over the
+- `[defects]` gives each defect's average (`bruises (2.82%)`), `[defects name]` only their names, `[defects range]` its lowest and highest over the
   boxes (`decay (0.0 - 3.5%)`). `[packages]` gives every packaging whole (`10.0 kg plastic boxes and 4.0 kg carton boxes`);
   `[package]` (one) keeps packs as written (`12x125g`; `8*400g` is written `8x400g`) and gives boxes by weight (`18.0 kg`).
   `[place]` is the Inspection Place, or Position + Destination when the report has those instead
   (`Shanghai, China`). Each box line's weight check uses that box's own packaging. `[temperature recorder]`: 'Temperature recorder is attached to the report.' (recorders are, for more than one) or
   'Temperature recorder was not found.'
+- **Quality / Condition groups** (Camposol): the small tag on each defect (– / Q / C) puts it in a group, saved on
+  this PC; *Save groups for everyone…* (templates key) shares them. `[quality defects]` and `[condition defects]`
+  are the average of every non-zero value of the group's defects (6.64). `[defects by grower]`: for each grower
+  (the Grower column), its ticked defects with their range: 'grower D14914, skin defects (0.0 - 3.8%) ... and
+  grower D6827, ...'.
 - **Phrases**: ready-made sentences under the template; a click adds one where the cursor is (in the remark or the
   box line template, whichever was clicked last). *Edit phrases…* (templates key) changes the list for everyone,
   one phrase per line; they can use placeholders.

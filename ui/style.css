@@ -320,3 +320,8 @@ body.dragging .files-card { border-color: var(--accent); }
 .nav-star:hover { color: var(--text); }
 .nav-star.on { color: var(--warn); opacity: 1; }
 .nav-star.on svg { fill: currentColor; }
+
+.rm-group { font: 700 10px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--raised); color: var(--dim); cursor: pointer; }
+.rm-group:hover { color: var(--text); }
+.rm-group-quality { background: var(--accent-tint); color: var(--accent-text); }
+.rm-group-condition { background: var(--warn-bg); color: var(--warn-text); }
