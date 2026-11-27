@@ -76,7 +76,8 @@ is open.
   'Temperature recorder was not found.'
 - **Quality / Condition groups** (Camposol): the small tag on each defect (– / Q / C) puts it in a group, saved on
   this PC; *Save groups for everyone…* (templates key) shares them. `[quality defects]` and `[condition defects]`
-  are the average of every non-zero value of the group's defects (6.64). `[defects by grower]`: for each grower
+  give 'an average of 6.64% quality defects' (the average of every non-zero value of the group's defects);
+  `[quality defects %]` / `[condition defects %]` give the number alone. `[defects by grower]`: for each grower
   (the Grower column), its ticked defects with their range: 'grower D14914, skin defects (0.0 - 3.8%) ... and
   grower D6827, ...'.
 - **Phrases**: ready-made sentences under the template; a click adds one where the cursor is (in the remark or the

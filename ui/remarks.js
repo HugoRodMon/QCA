@@ -186,7 +186,7 @@ dqs.addView('remarks', { code: 'RM', icon: dqs.icons.draft, title: 'Draft', sub:
     el.querySelector('[data-a=copy-boxes]').hidden = !lines.length;
     el.querySelector('#rm-note').textContent = S.note;
     const g = el.querySelector('#rm-groups');
-    if (g) g.textContent = out ? `Q ${out.values['quality defects']}% · C ${out.values['condition defects']}%` : '';
+    if (g) g.textContent = out ? `Q ${out.values['quality defects %']}% · C ${out.values['condition defects %']}%` : '';
   }
 
   let timer = null;

@@ -35,8 +35,10 @@ PLACEHOLDERS = {
     "defects": "the ticked defects with their average incidence",
     "defects range": "the ticked defects with their lowest and highest % ('decay (0.0 - 3.5%)')",
     "defects name": "the ticked defects, names only: 'bruises, dehydration and decay'",
-    "quality defects": "average % of the defects in the Quality group (non-zero values only): '6.64'",
-    "condition defects": "average % of the defects in the Condition group (non-zero values only): '5.69'",
+    "quality defects": "'an average of 6.64% quality defects' (the Quality group's non-zero values)",
+    "condition defects": "'an average of 5.69% condition defects' (the Condition group's non-zero values)",
+    "quality defects %": "the Quality group's average alone: '6.64'",
+    "condition defects %": "the Condition group's average alone: '5.69'",
     "defects by grower": "for each grower, its ticked defects with their range: 'grower D14914, skin defects (0.0 - 3.8%) ... and grower D6827, ...'",
     "temperature recorder": "'Temperature recorder is attached to the report.' (or 'recorders are', or 'was not found.')",
     "boxes": "number of boxes inspected",
@@ -240,7 +242,9 @@ def values(report, template, chosen=None, custom=None, groups=None):
     for group in GROUPS:                                 # Camposol: 'an average of 6.64% quality defects'
         names = [n for n, _, _, _ in report.defects if (groups or {}).get(n.lower()) == group]
         avg = group_average(report, names)
-        v[f"{group} defects"] = number(avg) if avg is not None else "0"
+        v[f"{group} defects %"] = number(avg) if avg is not None else "0"
+        v[f"{group} defects"] = (f"an average of {number(avg)}% {group} defects" if avg is not None
+                                 else f"no {group} defects")
     v["defects by grower"] = by_grower(report, chosen)
     for _ in range(3):                                   # a custom one may use another custom one
         for name, text in (custom or {}).items():
